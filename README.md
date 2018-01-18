@@ -53,6 +53,22 @@ Injected `Component`s are immutable
 with Environment():
     instance.log = 'mutate this'  # raises AttributeError: Can't set property
 ```
+You can define mutable static fields in a `Component`. If you want to define 
+immutable static fields (constants), `serum` provides the `immutable` utility.
+```python
+from serum import immutable
+
+class Immutable(Component):
+    value = immutable(1)
+
+i = Immutable()
+i.value = 2  # raises AttributeError: Can't set property
+```
+This is just convenience for:
+```python
+class Immutable(Component):
+    value = property(fget=lambda _: 1)
+```
 `Component`s can't define an `__init__` method.
 ```python
 class InvalidComponent(Component):  # raises InvalidComponent: Components should not have an __init__ method
@@ -107,19 +123,55 @@ with Environment(ConcreteLog):
 with Environment(MockLog):
     instance.log.info('Hello serum!')  # doesn't output anything
 ```
-`serum` is designed for type inference with `mypy`.
+`serum` is designed for type inference with `mypy` (or some other PEP 484 tool)
+(Work in progress). I find it works best with PyCharm's type checker.
 ```python
 # my_script.py
 from serum import inject, Component, abstractmethod
+
+
 class AbstractLog(Component):
     @abstractmethod
     def info(self, message):
         pass
+
+
 class NeedsLog:
     log = inject(AbstractLog)
     def test(self):
         self.log.warning('DANGER!')
 ```
 ```
-> mypy my_script.py
+> mypy my_script.py  # should fail, but currently doesn't :(
 ```
+`serum` is NOT currently thread safe! (work in progress).
+# Why?
+If you've been researching Dependency Injection frameworks for python,
+you've no doubt come across this opinion:
+
+>_"You dont need Dependency Injection in python. 
+>You can just use duck typing and monkey patching!"_
+ 
+The position behind this statement is often that you only need Dependency 
+Injection in statically typed language.
+
+In truth, you don't really _need_ Dependency Injection in any language, 
+statically typed or otherwise. 
+When building large applications that need to run in multiple environments however,
+Dependency Injection can make your life a lot easier. In my experience,
+excessive use of monkey patching for managing environments leads to a jumbled
+mess of implicit initialisation steps and `if value is None` type code.
+
+I wrote `serum` because I found the existing Dependency Injection frameworks 
+for python to be too complicated to use. The lazy injection strategy of `serum` 
+gives it a slightly different and, in my view, more pythonic feel than other 
+frameworks.
+
+In addition to being a framework, I've attempted to design `serum` to encourage
+designing classes that follow the Dependency Inversion Principle:
+
+> one should “depend upon abstractions, _not_ concretions."
+
+This is achieved by letting inheritance being the principle way of providing
+dependencies and allowing dependencies to be abstract. See the `example.py` for a
+detailed tutorial.

@@ -1,4 +1,4 @@
-from typing import TypeVar, Type, cast
+from typing import TypeVar, Type, cast, Any
 from .exceptions import InvalidDependency
 from .component import Component
 from .environment import Environment
@@ -7,7 +7,7 @@ C = TypeVar('C', bound=Component)
 T = TypeVar('T')
 
 
-def inject(component: Type[C]) -> C:
+def inject(component: Any) -> C:
     if not issubclass(component, Component):
         raise InvalidDependency(
             'Attempt to inject type that is not a Component: {}'.format(
