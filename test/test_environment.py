@@ -1,7 +1,5 @@
 import unittest
 
-import time
-
 from serum import Environment, Component, abstractmethod
 from serum._exceptions import InvalidDependency, UnregisteredDependency, \
     NoEnvironment, AmbiguousDependencies
@@ -41,27 +39,27 @@ class EnvironmentTests(unittest.TestCase):
 
     def test_environment_provides_concrete_component(self):
         with Environment():
-            c = Environment.get(SomeComponent)
+            c = Environment.provide(SomeComponent)
             self.assertIsInstance(c, SomeComponent)
 
     def test_environment_cant_provide_abstract_component(self):
         with Environment():
             with self.assertRaises(UnregisteredDependency):
-                Environment.get(AbstractComponent)
+                Environment.provide(AbstractComponent)
 
     def test_environment_provides_concrete_subclass(self):
         with Environment(ConcreteComponent):
-            c = Environment.get(AbstractComponent)
+            c = Environment.provide(AbstractComponent)
             self.assertIsInstance(c, AbstractComponent)
             self.assertIsInstance(c, ConcreteComponent)
 
     def test_environment_provides_correct_implementation(self):
         with Environment(ConcreteComponent):
-            c = Environment.get(AbstractComponent)
+            c = Environment.provide(AbstractComponent)
             self.assertIsInstance(c, AbstractComponent)
             self.assertIsInstance(c, ConcreteComponent)
         with Environment(AlternativeComponent):
-            c = Environment.get(AbstractComponent)
+            c = Environment.provide(AbstractComponent)
             self.assertIsInstance(c, AbstractComponent)
             self.assertIsInstance(c, AlternativeComponent)
 
@@ -77,7 +75,7 @@ class EnvironmentTests(unittest.TestCase):
 
         @test_environment
         def test():
-            component = Environment.get(SomeComponent)
+            component = Environment.provide(SomeComponent)
             self.assertIsInstance(component, SomeComponent)
 
         test()
@@ -85,29 +83,28 @@ class EnvironmentTests(unittest.TestCase):
     def test_new_environment_in_thread(self):
         def test():
             with Environment(AlternativeComponent):
-                c1 = Environment.get(AbstractComponent)
+                c1 = Environment.provide(AbstractComponent)
                 self.assertIsInstance(c1, AlternativeComponent)
-                time.sleep(1)
 
         with Environment(ConcreteComponent):
             threading.Thread(target=test).start()
-            c2 = Environment.get(AbstractComponent)
+            c2 = Environment.provide(AbstractComponent)
             self.assertIsInstance(c2, ConcreteComponent)
 
     def test_same_environment_in_thread(self):
         def test():
             with self.assertRaises(NoEnvironment):
-                Environment.get(AbstractComponent)
+                Environment.provide(AbstractComponent)
 
         with Environment(ConcreteComponent):
             threading.Thread(target=test).start()
 
     def test_nested_environments(self):
         with Environment(ConcreteComponent):
-            c = Environment.get(AbstractComponent)
+            c = Environment.provide(AbstractComponent)
             self.assertIsInstance(c, ConcreteComponent)
             with Environment(AlternativeComponent):
-                c = Environment.get(AbstractComponent)
+                c = Environment.provide(AbstractComponent)
                 self.assertIsInstance(c, AlternativeComponent)
 
     def test_context_manager(self):
@@ -121,11 +118,11 @@ class EnvironmentTests(unittest.TestCase):
             pass
 
         with Environment(ConcreteComponent, ConcreteComponentSub):
-            c = Environment.get(AbstractComponent)
+            c = Environment.provide(AbstractComponent)
             self.assertIsInstance(c, ConcreteComponentSub)
 
     def test_fails_with_ambiguous_dependencies(self):
         with Environment(ConcreteComponent, AlternativeComponent):
             with self.assertRaises(AmbiguousDependencies):
-                Environment.get(AbstractComponent)
+                Environment.provide(AbstractComponent)
 

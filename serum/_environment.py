@@ -23,6 +23,12 @@ class _LocalStorage(threading.local):
 
 
 class Environment:
+    """
+    Context manager/decorator for providing instances of Component:
+
+    with Environment(MyDependency):
+        NeedsDependency()
+    """
     __local_storage = _LocalStorage()
 
     @staticmethod
@@ -40,12 +46,15 @@ class Environment:
         current_env.__mocks[component] = mock
         return mock
 
-
     @staticmethod
     def _set_current_env(env: 'Environment'):
         Environment.__local_storage.current_env = env
 
     def __init__(self, *args: Type[C]) -> None:
+        """
+        Construct a new environment
+        :param args: Components to provide in this environment
+        """
         self.__registry: Set = set()
         self.__old_current = None
         self.__mocks = dict()
@@ -63,9 +72,19 @@ class Environment:
         return self
 
     def __contains__(self, component: Type[C]):
+        """
+        Test if a Component is registered in this environment
+        :param component: Component to test
+        :return: True if component is registered in this environment else False
+        """
         return component in self.__registry
 
     def __call__(self, f):
+        """
+        Decorate a function to run in this environment
+        :param f: function to decorate
+        :return: decorated function
+        """
         @wraps(f)
         def run_in(*args, **kwargs):
             with self:
@@ -73,23 +92,51 @@ class Environment:
         return run_in
 
     def __iter__(self):
+        """
+        Iterate over the components registered in this environment
+        :return: Iterator of components
+        """
         return iter(self.__registry)
 
     def __or__(self, other: 'Environment') -> 'Environment':
+        """
+        Combine this environment with another, such that the new environment
+        can provide all components in both environments
+        :param other: Environment to combine with this one
+        :return: New environment with components from this and the other
+                 environment
+        """
         new_registry = self.__registry | other.__registry
         return Environment(*new_registry)
 
     def __enter__(self):
+        """
+        Register this environment as the current environment in this thread
+        :return:
+        """
         self.__old_current = Environment._current_env()
         Environment._set_current_env(self)
 
     def __exit__(self, exc_type, exc_val, exc_tb):
+        """
+        De-register this environment as the current environment in this thread
+        :param exc_type:
+        :param exc_val:
+        :param exc_tb:
+        :return:
+        """
         self.__mocks = dict()
         Environment._set_current_env(self.__old_current)
         self.__old_current = None
 
     @staticmethod
-    def get(component: Type[C]) -> Union[C, MagicMock]:
+    def provide(component: Type[C]) -> Union[C, MagicMock]:
+        """
+        Provide a component in this environment
+        :param component: The type to provide
+        :return: Instance of the most specific subtype of component
+                 in this environment
+        """
         if Environment._current_env() is None:
             raise NoEnvironment(
                 'Can\'t inject components outside an environment'

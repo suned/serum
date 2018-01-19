@@ -10,6 +10,24 @@ class _ComponentMeta(ABCMeta):
 
 
 class Component(metaclass=_ComponentMeta):
+    """
+    Base class for all injectable types.
+    Prevents __init__ method:
+
+    class MyComponent(Component):  # raises: InvalidComponent
+        def __init__(self):
+            pass
+
+    In addition, Components can be abstract, meaning they
+    work with the built abc module:
+
+    class MyAbstractComponent(Component):
+        @abstractmethod
+        def method(self):
+            pass
+
+    MyAbstractComponent()  # raises: TypeError
+    """
     pass
 
 
