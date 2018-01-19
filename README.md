@@ -1,5 +1,5 @@
 # Description
-`serum` is a fresh take on a Dependency Injection framework for Python 3.
+`serum` is a fresh take on Dependency Injection in Python 3.
 
 It's pure python, has no dependencies, and is less than 150 lines of code.
 # Installation
