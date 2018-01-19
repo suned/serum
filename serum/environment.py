@@ -1,3 +1,4 @@
+from functools import wraps
 from typing import Type, TypeVar, Set
 from .exceptions import (
     InvalidDependency,
@@ -5,16 +6,31 @@ from .exceptions import (
     UnregisteredDependency,
 )
 from .component import Component
+import threading
 
 C = TypeVar('C', bound=Component)
 
 
+class _LocalStorage(threading.local):
+    def __init__(self):
+        self.current_env: Environment = None
+
+
 class Environment:
-    __current_env: 'Environment' = None
+    __local_storage = _LocalStorage()
+
+    @staticmethod
+    def _current_env() -> 'Environment':
+        return Environment.__local_storage.current_env
+
+    @staticmethod
+    def _set_current_env(env: 'Environment'):
+        Environment.__local_storage.current_env = env
 
     def __init__(self, *args: Type[C]) -> None:
         self.__registry: Set = set()
         self.__is_active = False
+        self.__old_current = None
         for c in args:
             self.__use(c)
 
@@ -33,19 +49,33 @@ class Environment:
     def __contains__(self, component: Type[C]):
         return component in self.__registry
 
+    def __call__(self, f):
+        @wraps(f)
+        def run_in(*args, **kwargs):
+            with self:
+                f(*args, **kwargs)
+        return run_in
+
+    def __iter__(self):
+        return iter(self.__registry)
+
+    def __or__(self, other: 'Environment') -> 'Environment':
+        new_registry = self.__registry | other.__registry
+        return Environment(*new_registry)
+
     def __enter__(self):
         self.__is_active = True
-        self.__old_current = Environment.__current_env
-        Environment.__current_env = self
+        self.__old_current = Environment._current_env()
+        Environment._set_current_env(self)
 
     def __exit__(self, exc_type, exc_val, exc_tb):
         self.__is_active = False
-        Environment.__current_env = self.__old_current
+        Environment._set_current_env(self.__old_current)
         self.__old_current = None
 
     @staticmethod
     def get(component: Type[C]) -> C:
-        if Environment.__current_env is None:
+        if Environment._current_env() is None:
             raise NoEnvironment(
                 'Can\'t inject components outside an environment'
             )
@@ -65,7 +95,7 @@ class Environment:
     @staticmethod
     def _find_subtype(component: Type[C]) -> Type[C]:
         try:
-            return next(c for c in Environment.__current_env.__registry
+            return next(c for c in Environment._current_env()
                         if issubclass(c, component))
         except StopIteration:
             raise UnregisteredDependency(

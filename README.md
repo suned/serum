@@ -33,6 +33,15 @@ class MockLog(Log):
 with Environment(MockLog):
     assert isinstance(instance.log, MockLog)
 ```
+`Environment`s can also be used as decorators:
+```python
+test_environment = Environment(MockLog)
+
+@test_environment
+def f():
+    assert isinstance(instance.log, MockLog)
+
+```
 You can only provide subtypes of `Component` with `Environment`.
 ```python
 class C:
@@ -54,7 +63,8 @@ with Environment():
     instance.log = 'mutate this'  # raises AttributeError: Can't set property
 ```
 You can define mutable static fields in a `Component`. If you want to define 
-immutable static fields (constants), `serum` provides the `immutable` utility.
+immutable static fields (constants), `serum` provides the `immutable` utility
+that also supports type inference with PEP 484 tools. 
 ```python
 from serum import immutable
 
@@ -123,6 +133,22 @@ with Environment(ConcreteLog):
 with Environment(MockLog):
     instance.log.info('Hello serum!')  # doesn't output anything
 ```
+`Environment`s are local to each thread. This means that when using multi threading
+each thread must define its own environment.
+```python
+import threading
+
+def worker_without_environment():
+    NeedsLog().log  # raises NoEnvironment: Can't inject components outside an environment
+
+def worker_with_environment():
+    with Environment(ConcreteLog):
+        NeedsLog().log  # OK!
+
+with Environment(ConcreteLog):
+    threading.Thread(target=worker_without_environment()).start()
+    threading.Thread(target=worker_with_environment()).start()
+```
 `serum` is designed for type inference with `mypy` (or some other PEP 484 tool)
 (Work in progress). I find it works best with PyCharm's type checker.
 ```python
@@ -144,7 +170,6 @@ class NeedsLog:
 ```
 > mypy my_script.py  # should fail, but currently doesn't :(
 ```
-`serum` is NOT currently thread safe! (work in progress).
 # Why?
 If you've been researching Dependency Injection frameworks for python,
 you've no doubt come across this opinion:
@@ -161,11 +186,6 @@ When building large applications that need to run in multiple environments howev
 Dependency Injection can make your life a lot easier. In my experience,
 excessive use of monkey patching for managing environments leads to a jumbled
 mess of implicit initialisation steps and `if value is None` type code.
-
-I wrote `serum` because I found the existing Dependency Injection frameworks 
-for python to be too complicated to use. The lazy injection strategy of `serum` 
-gives it a slightly different and, in my view, more pythonic feel than other 
-frameworks.
 
 In addition to being a framework, I've attempted to design `serum` to encourage
 designing classes that follow the Dependency Inversion Principle:

@@ -1,6 +1,11 @@
 import unittest
+
+import time
+
 from serum import Environment, Component, abstractmethod
-from serum.exceptions import InvalidDependency, UnregisteredDependency
+from serum.exceptions import InvalidDependency, UnregisteredDependency, \
+    NoEnvironment
+import threading
 
 
 class SomeComponent(Component):
@@ -60,6 +65,54 @@ class EnvironmentTests(unittest.TestCase):
             self.assertIsInstance(c, AbstractComponent)
             self.assertIsInstance(c, AlternativeComponent)
 
-    def test_cant_update_active_environment(self):
+    def test_intersection(self):
+        e1 = Environment(SomeComponent)
+        e2 = Environment(ConcreteComponent)
+        e3 = e1 | e2
+        self.assertIn(SomeComponent, e3)
+        self.assertIn(ConcreteComponent, e3)
+
+    def test_decorater(self):
+        test_environment = Environment(SomeComponent)
+
+        @test_environment
+        def test():
+            component = Environment.get(SomeComponent)
+            self.assertIsInstance(component, SomeComponent)
+
+        test()
+
+    def test_new_environment_in_thread(self):
+        def test():
+            with Environment(AlternativeComponent):
+                c1 = Environment.get(AbstractComponent)
+                self.assertIsInstance(c1, AlternativeComponent)
+                time.sleep(1)
+
+        with Environment(ConcreteComponent):
+            threading.Thread(target=test).start()
+            c2 = Environment.get(AbstractComponent)
+            self.assertIsInstance(c2, ConcreteComponent)
+
+    def test_same_environment_in_thread(self):
+        def test():
+            with self.assertRaises(NoEnvironment):
+                Environment.get(AbstractComponent)
+
+        with Environment(ConcreteComponent):
+            threading.Thread(target=test).start()
+
+    def test_nested_environments(self):
+        with Environment(ConcreteComponent):
+            c = Environment.get(AbstractComponent)
+            self.assertIsInstance(c, ConcreteComponent)
+            with Environment(AlternativeComponent):
+                c = Environment.get(AbstractComponent)
+                self.assertIsInstance(c, AlternativeComponent)
+
+    def test_context_manager(self):
         e = Environment()
+        with e:
+            self.assertIs(Environment._Environment__local_storage.current_env, e)
+        self.assertIsNone(Environment._Environment__local_storage.current_env)
 
