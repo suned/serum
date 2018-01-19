@@ -31,7 +31,8 @@ jobs:
           command: |
             . venv/bin/activate
             codecov
-      -run:
+
+      - run:
         name: release to pypi
         command: |
           . venv/bin/activate
