@@ -34,6 +34,16 @@ class MockLog(Log):
 with Environment(MockLog):
     assert isinstance(instance.log, MockLog)
 ```
+It is an error to provide two equally specific subtypes of the same type:
+```python
+class FileLog(Log):
+    _file = 'log.txt'
+    def info(self, message):
+        with open(self._file, 'w') as f:
+            f.write(message)
+
+Environment(MockLog, FileLog)  # raises: AmbiguousDependencies: Attempt to register two equally specific types: <class 'MockLog'>, <class 'FileLog'>
+```
 `Environment`s can also be used as decorators:
 ```python
 test_environment = Environment(MockLog)
