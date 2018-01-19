@@ -27,5 +27,5 @@ jobs:
             coverage run -m unittest
 
       - run:
-        name: report metrics
-        command: codecov
+          name: report metrics
+          command: codecov
