@@ -146,7 +146,7 @@ with Environment(ConcreteLog):
 with Environment(MockLog):
     instance.log.info('Hello serum!')  # doesn't output anything
 ```
-`Environment`s are local to each thread. This means that when using multi threading
+`Environment`s are local to each thread. This means that when using multi-threading
 each thread must define its own environment.
 ```python
 import threading
