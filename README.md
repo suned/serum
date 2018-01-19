@@ -24,7 +24,8 @@ instance = NeedsLog()
 with Environment():
     assert isinstance(instance.log, Log)
 ```
-`Environment`s provide implementations of `Components`.
+`Environment`s provide implementations of `Components`. An `Environment` will always provide the most
+specific subtype of the requested type.
 ```python
 class MockLog(Log):
     def info(self, message):
