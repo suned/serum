@@ -1,4 +1,4 @@
-!https://circleci.com/gh/suned/serum.svg?style=svg!:https://circleci.com/gh/suned/serum
+[![CircleCI](https://circleci.com/gh/suned/serum.svg?style=svg)](https://circleci.com/gh/suned/serum)
 
 # Description
 `serum` is a fresh take on Dependency Injection in Python 3.
