@@ -40,10 +40,10 @@ workflows:
         working_directory: ~/serum
         steps:
           - run:
-            name: release to pypi
-            command: |
-              . venv/bin/activate
-              bash scripts/deploy.sh
+              name: release to pypi
+              command: |
+                . venv/bin/activate
+                bash scripts/deploy.sh
         filters:
           tags:
             only: /v[0-9]+\.[0-9]+\.[0-9]+/
