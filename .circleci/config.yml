@@ -18,7 +18,7 @@ jobs:
           command: |
             python3 -m venv venv
             . venv/bin/activate
-            pip install codecov
+            pip install codecov semver twine
 
       - run:
           name: run tests
@@ -31,3 +31,11 @@ jobs:
           command: |
             . venv/bin/activate
             codecov
+      -run:
+        name: release to pypi
+        command: |
+          . venv/bin/activate
+          bash scripts/deploy.sh
+        filters:
+          tags:
+            only: /v[0-9]+\.[0-9]+\.[0-9]+/
