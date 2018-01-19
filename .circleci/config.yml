@@ -2,37 +2,36 @@
 #
 # Check https://circleci.com/docs/2.0/language-python/ for more details
 #
-workflows:
-  version: 2
-  build_and_deploy:
-    jobs:
-      test:
-        docker:
-          - image: circleci/python:3.6.1
+version: 2
+  jobs:
+    test:
+      docker:
+        - image: circleci/python:3.6.1
 
-        working_directory: ~/serum
+      working_directory: ~/serum
 
-        steps:
-          - checkout
+      steps:
+        - checkout
 
-          - run:
-              name: install dependencies
-              command: |
-                python3 -m venv venv
-                . venv/bin/activate
-                pip install codecov semver twine
+        - run:
+          name: install dependencies
+            command: |
+              python3 -m venv venv
+              . venv/bin/activate
+              pip install codecov semver twine
 
-          - run:
-              name: run tests
-              command: |
-                . venv/bin/activate
-                coverage run --source serum --branch  -m unittest
 
-          - run:
-              name: report metrics
-              command: |
-                . venv/bin/activate
-                codecov
+        - run:
+          name: run tests
+          command: |
+            . venv/bin/activate
+            coverage run --source serum --branch  -m unittest
+
+        - run:
+          name: report metrics
+          command: |
+            . venv/bin/activate
+            codecov
       deploy:
         requires: test
         docker:
