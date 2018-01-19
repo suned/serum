@@ -1,5 +1,6 @@
 import unittest
 from serum import mock, Component, inject, Environment
+from serum._exceptions import NoEnvironment
 
 
 class SomeComponent(Component):
@@ -30,3 +31,7 @@ class MockTests(unittest.TestCase):
             d = Depenedent()
             self.assertIsNot(some_component_mock, d.some_component)
             self.assertIsInstance(d.some_component, SomeComponent)
+
+    def test_cant_register_mocks_outside_environment(self):
+        with self.assertRaises(NoEnvironment):
+            mock(SomeComponent)
