@@ -11,21 +11,21 @@ jobs:
     steps:
       - checkout
       - run:
-        name: install dependencies
-        command: |
-          python3 -m venv venv
-          . venv/bin/activate
-          pip install codecov semver twine
+          name: install dependencies
+          command: |
+            python3 -m venv venv
+            . venv/bin/activate
+            pip install codecov semver twine
       - run:
-        name: run tests
-        command: |
-          . venv/bin/activate
-          coverage run --source serum --branch  -m unittest
+          name: run tests
+          command: |
+            . venv/bin/activate
+            coverage run --source serum --branch  -m unittest
       - run:
-        name: report metrics
-        command: |
-          . venv/bin/activate
-          codecov
+          name: report metrics
+          command: |
+            . venv/bin/activate
+            codecov
 
   deploy:
     docker:
@@ -33,10 +33,10 @@ jobs:
     working_directory: ~/serum
     steps:
       - run:
-        name: release to pypi
-        command: |
-          . venv/bin/activate
-          bash scripts/deploy.sh
+          name: release to pypi
+          command: |
+            . venv/bin/activate
+            bash scripts/deploy.sh
 
 workflows:
   version: 2
@@ -44,9 +44,9 @@ workflows:
     jobs:
       - test
       - deploy:
-        requires:
-          - test
-        filters:
-          tags:
-            only: /v[0-9]+\.[0-9]+\.[0-9]+/
+          requires:
+            - test
+          filters:
+            tags:
+              only: /v[0-9]+\.[0-9]+\.[0-9]+/
 
