@@ -28,4 +28,6 @@ jobs:
 
       - run:
           name: report metrics
-          command: codecov
+          command: |
+            . venv/bin/activate
+            codecov
