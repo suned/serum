@@ -43,7 +43,7 @@ class FileLog(Log):
             f.write(message)
 
 with Environment(MockLog, FileLog):
-    instance.log  # raises: AmbiguousDependencies: Attempt to inject type with equally specific subtypes: <class 'MockLog'>, <class 'FileLog'>
+    instance.log  # raises: AmbiguousDependencies: Attempt to inject type <class 'Log'> with equally specific provided subtypes: <class 'MockLog'>, <class 'FileLog'>
 ```
 `Environment`s can also be used as decorators:
 ```python
