@@ -7,7 +7,7 @@ C = TypeVar('C', bound=Component)
 T = TypeVar('T')
 
 
-def inject(component: Any) -> C:
+def inject(component: Type[C]) -> C:
     if not issubclass(component, Component):
         raise InvalidDependency(
             'Attempt to inject type that is not a Component: {}'.format(

@@ -29,15 +29,9 @@ class EnvironmentTests(unittest.TestCase):
             pass
         with self.assertRaises(InvalidDependency):
             Environment(NotAComponent)
-        with self.assertRaises(InvalidDependency):
-            Environment().use(NotAComponent)
 
     def test_can_register_component(self):
         e = Environment(SomeComponent)
-        self.assertTrue(SomeComponent in e)
-        e = Environment()
-        self.assertFalse(SomeComponent in e)
-        e.use(SomeComponent)
         self.assertTrue(SomeComponent in e)
 
     def test_environment_provides_concrete_component(self):
@@ -65,3 +59,7 @@ class EnvironmentTests(unittest.TestCase):
             c = Environment.get(AbstractComponent)
             self.assertIsInstance(c, AbstractComponent)
             self.assertIsInstance(c, AlternativeComponent)
+
+    def test_cant_update_active_environment(self):
+        e = Environment()
+

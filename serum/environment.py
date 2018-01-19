@@ -1,5 +1,9 @@
 from typing import Type, TypeVar, Set
-from .exceptions import InvalidDependency, NoEnvironment, UnregisteredDependency
+from .exceptions import (
+    InvalidDependency,
+    NoEnvironment,
+    UnregisteredDependency,
+)
 from .component import Component
 
 C = TypeVar('C', bound=Component)
@@ -10,10 +14,13 @@ class Environment:
 
     def __init__(self, *args: Type[C]) -> None:
         self.__registry: Set = set()
+        self.__is_active = False
         for c in args:
-            self.use(c)
+            self.__use(c)
 
-    def use(self, component: Type[C]):
+    def __use(self, component: Type[C]):
+        if self.__is_active:
+            raise ValueError('Can\'t change active environment')
         if not issubclass(component, Component):
             raise InvalidDependency(
                 'Attempt to register type that is not a Component: {}'.format(
@@ -27,10 +34,12 @@ class Environment:
         return component in self.__registry
 
     def __enter__(self):
+        self.__is_active = True
         self.__old_current = Environment.__current_env
         Environment.__current_env = self
 
     def __exit__(self, exc_type, exc_val, exc_tb):
+        self.__is_active = False
         Environment.__current_env = self.__old_current
         self.__old_current = None
 
