@@ -103,8 +103,8 @@ To construct `Component`s with dependencies, you should instead use `inject`
 class ComponentWithDependencies(Component):
     log = inject(Log)
 ```
-`Component`s can be abstract. Abstract `Component`s can't be instantiated in an
-`Environment` without a concrete implementation. For convenience you can import
+`Component`s can be abstract. Abstract `Component`s can't be injected in an
+`Environment` that doesn't provide a concrete implementation. For convenience you can import
 `abstractmethod`, `abstractclassmethod` or `abstractclassmethod` from `serum`,
 but they are simply references to the equivalent decorators from the `abc` module 
 in the standard library.
