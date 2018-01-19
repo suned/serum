@@ -46,6 +46,7 @@ You can only provide subtypes of `Component` with `Environment`.
 ```python
 class C:
     pass
+
 Environment(C)  # raises: InvalidDependency: Attempt to register type that is not a Component: <class 'C'> 
 ``` 
 Similarly, you can't inject types that are not `Component` subtypes.
