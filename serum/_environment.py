@@ -135,9 +135,5 @@ class Environment:
             )
         return max(subtypes, key=mro_distance)
 
-    @classmethod
-    def _find_mock(cls, component):
-        pass
-
 
 __all__ = ['Environment']
