@@ -168,12 +168,18 @@ when the environment context is closed.
 ```python
 from serum import mock
 
-with Environment():
+environment = Environment(ConcreteLog)
+with environment:
     log_mock = mock(AbstractLog)
     log_mock.method.return_value = 'some value'
     instance = NeedsLog()
     assert instance.log is log_mock
     assert instance.log.method() == 'some value'
+
+with environment:
+    instance = NeedsLog()
+    assert instance.log is not log_mock
+    assert isinstance(instance.log, ConcreteLog)
 ```
 `serum` is designed for type inference with `mypy` (or some other PEP 484 tool)
 (Work in progress). I find it works best with PyCharm's type checker.
