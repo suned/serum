@@ -7,6 +7,7 @@ from .exceptions import (
 )
 from .component import Component
 import threading
+import inspect
 
 C = TypeVar('C', bound=Component)
 
@@ -94,13 +95,17 @@ class Environment:
 
     @staticmethod
     def _find_subtype(component: Type[C]) -> Type[C]:
-        try:
-            return next(c for c in Environment._current_env()
-                        if issubclass(c, component))
-        except StopIteration:
+        def mro_distance(subtype: Type[C]) -> int:
+            mro = inspect.getmro(subtype)
+            return mro.index(component)
+
+        subtypes = [c for c in Environment._current_env()
+                    if issubclass(c, component)]
+        if not subtypes:
             raise UnregisteredDependency(
                 'Unregistered dependency: {}'.format(str(component))
             )
+        return max(subtypes, key=mro_distance)
 
 
 __all__ = ['Environment']

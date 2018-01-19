@@ -113,6 +113,14 @@ class EnvironmentTests(unittest.TestCase):
     def test_context_manager(self):
         e = Environment()
         with e:
-            self.assertIs(Environment._Environment__local_storage.current_env, e)
-        self.assertIsNone(Environment._Environment__local_storage.current_env)
+            self.assertIs(Environment._current_env(), e)
+        self.assertIsNone(Environment._current_env())
+
+    def test_environment_gets_most_specific(self):
+        class ConcreteComponentSub(ConcreteComponent):
+            pass
+
+        with Environment(ConcreteComponent, ConcreteComponentSub):
+            c = Environment.get(AbstractComponent)
+            self.assertIsInstance(c, ConcreteComponentSub)
 
