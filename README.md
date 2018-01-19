@@ -162,8 +162,9 @@ with Environment(ConcreteLog):
     threading.Thread(target=worker_without_environment()).start()
     threading.Thread(target=worker_with_environment()).start()
 ```
-`serum` has support for injecting mocks in unittests using the `mock` utility
-function. The `mock` is only usable inside an an environment context. Mocks are reset
+`serum` has support for injecting `MagicMock`s from the builtin
+`unittest.mock` library in unittests using the `mock` utility
+function. `mock` is only usable inside an an environment context. Mocks are reset
 when the environment context is closed.
 ```python
 from serum import mock
@@ -180,6 +181,38 @@ with environment:
     instance = NeedsLog()
     assert instance.log is not log_mock
     assert isinstance(instance.log, ConcreteLog)
+```
+Note that `mock` will only mock requests of the
+exact type supplied as its argument, but not requests of
+more or less specific types
+```python
+from unittest.mock import MagicMock
+class Super(Component):
+    pass
+
+class Sub(Super):
+    pass
+
+class SubSub(Sub):
+    pass
+
+class NeedsSuper:
+    injected = inject(Super)
+
+class NeedsSub:
+    injected = inject(Sub)
+
+class NeedsSubSub:
+    injected = inject(SubSub)
+
+with Environment():
+    mock(Sub)
+    needs_super = NeedsSuper()
+    needs_sub = NeedsSub()
+    needs_subsub = NeedsSubSub()
+    assert isinstance(needs_super.injected, Super)
+    assert isinstance(needs_sub.injected, MagicMock)
+    assert isinstance(needs_subsub.injected, SubSub)
 ```
 `serum` is designed for type inference with `mypy` (or some other PEP 484 tool)
 (Work in progress). I find it works best with PyCharm's type checker.
@@ -206,8 +239,8 @@ class NeedsLog:
 If you've been researching Dependency Injection frameworks for python,
 you've no doubt come across this opinion:
 
->_"You dont need Dependency Injection in python. 
->You can just use duck typing and monkey patching!"_
+>You dont need Dependency Injection in python. 
+>You can just use duck typing and monkey patching!
  
 The position behind this statement is often that you only need Dependency 
 Injection in statically typed languages.
