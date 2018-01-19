@@ -1,0 +1,31 @@
+# Python CircleCI 2.0 configuration file
+#
+# Check https://circleci.com/docs/2.0/language-python/ for more details
+#
+version: 2
+jobs:
+  build:
+    docker:
+      - image: circleci/python:3.6.1
+
+    working_directory: ~/serum
+
+    steps:
+      - checkout
+
+      - run:
+          name: install dependencies
+          command: |
+            python3 -m venv venv
+            . venv/bin/activate
+            pip install codecov
+
+      - run:
+          name: run tests
+          command: |
+            . venv/bin/activate
+            coverage run -m unittest
+
+      - run:
+        name: report metrics
+        command: codecov
