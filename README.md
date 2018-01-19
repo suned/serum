@@ -1,7 +1,7 @@
 # Description
 `serum` is a fresh take on Dependency Injection in Python 3.
 
-It's pure python, has no dependencies, and is less than 150 lines of code.
+`serum` is pure python, has no dependencies, and is less than 300 lines of code.
 # Installation
 ```
 > pip install serum
@@ -181,6 +181,8 @@ with environment:
     instance = NeedsLog()
     assert instance.log is not log_mock
     assert isinstance(instance.log, ConcreteLog)
+
+mock(AbstractLog)  # raises: NoEnvironment: Can't register mock outside environment
 ```
 Note that `mock` will only mock requests of the
 exact type supplied as its argument, but not requests of
