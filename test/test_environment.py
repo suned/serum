@@ -4,7 +4,7 @@ import time
 
 from serum import Environment, Component, abstractmethod
 from serum.exceptions import InvalidDependency, UnregisteredDependency, \
-    NoEnvironment
+    NoEnvironment, AmbiguousDependencies
 import threading
 
 
@@ -123,4 +123,9 @@ class EnvironmentTests(unittest.TestCase):
         with Environment(ConcreteComponent, ConcreteComponentSub):
             c = Environment.get(AbstractComponent)
             self.assertIsInstance(c, ConcreteComponentSub)
+
+    def test_fails_with_ambiguous_dependencies(self):
+        with Environment(ConcreteComponent, AlternativeComponent):
+            with self.assertRaises(AmbiguousDependencies):
+                Environment.get(AbstractComponent)
 

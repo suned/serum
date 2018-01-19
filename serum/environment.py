@@ -4,10 +4,12 @@ from .exceptions import (
     InvalidDependency,
     NoEnvironment,
     UnregisteredDependency,
+    AmbiguousDependencies
 )
 from .component import Component
 import threading
 import inspect
+from collections import Counter
 
 C = TypeVar('C', bound=Component)
 
@@ -101,6 +103,18 @@ class Environment:
 
         subtypes = [c for c in Environment._current_env()
                     if issubclass(c, component)]
+        distances = [mro_distance(subtype) for subtype in subtypes]
+        counter = Counter(distances)
+        if any(count > 1 for count in counter.values()):
+            ambiguous = [str(subtype) for subtype in subtypes
+                         if counter[mro_distance(subtype)] > 1]
+            message = ('Attempt to inject type {} with '
+                       'equally specific provided subtypes: {}')
+            message = message.format(
+                str(component),
+                ', '.join(ambiguous)
+            )
+            raise AmbiguousDependencies(message)
         if not subtypes:
             raise UnregisteredDependency(
                 'Unregistered dependency: {}'.format(str(component))

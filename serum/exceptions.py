@@ -12,3 +12,7 @@ class UnregisteredDependency(Exception):
 
 class InvalidComponent(Exception):
     pass
+
+
+class AmbiguousDependencies(Exception):
+    pass
