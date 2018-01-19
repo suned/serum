@@ -24,7 +24,7 @@ jobs:
           name: run tests
           command: |
             . venv/bin/activate
-            coverage run -m unittest
+            coverage --source serum --branch run -m unittest
 
       - run:
           name: report metrics
