@@ -191,7 +191,7 @@ you've no doubt come across this opinion:
 >You can just use duck typing and monkey patching!"_
  
 The position behind this statement is often that you only need Dependency 
-Injection in statically typed language.
+Injection in statically typed languages.
 
 In truth, you don't really _need_ Dependency Injection in any language, 
 statically typed or otherwise. 
