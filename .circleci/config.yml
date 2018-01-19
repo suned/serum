@@ -7,43 +7,46 @@ jobs:
   test:
     docker:
       - image: circleci/python:3.6.1
-
     working_directory: ~/serum
-
     steps:
       - checkout
-
       - run:
         name: install dependencies
         command: |
           python3 -m venv venv
           . venv/bin/activate
           pip install codecov semver twine
-
-
       - run:
         name: run tests
         command: |
           . venv/bin/activate
           coverage run --source serum --branch  -m unittest
-
       - run:
         name: report metrics
         command: |
           . venv/bin/activate
           codecov
 
-    deploy:
-      requires: test
-      docker:
-        - image: circleci/python:3.6.1
-      working_directory: ~/serum
-      steps:
-        - run:
-            name: release to pypi
-            command: |
-              . venv/bin/activate
-              bash scripts/deploy.sh
-      filters:
-        tags:
-          only: /v[0-9]+\.[0-9]+\.[0-9]+/
+  deploy:
+    docker:
+      - image: circleci/python:3.6.1
+    working_directory: ~/serum
+    steps:
+      - run:
+        name: release to pypi
+        command: |
+          . venv/bin/activate
+          bash scripts/deploy.sh
+
+  workflows:
+    version: 2
+    test_and_deploy:
+      jobs:
+        - test
+        - deploy:
+          requires:
+            - test
+          filters:
+            tags:
+              only: /v[0-9]+\.[0-9]+\.[0-9]+/
+
