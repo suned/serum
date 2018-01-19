@@ -32,6 +32,8 @@ jobs:
             . venv/bin/activate
             codecov
   deploy:
+    docker:
+      - image: circleci/python:3.6.1
     steps:
       - run:
         name: release to pypi
