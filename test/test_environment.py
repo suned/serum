@@ -3,7 +3,7 @@ import unittest
 import time
 
 from serum import Environment, Component, abstractmethod
-from serum.exceptions import InvalidDependency, UnregisteredDependency, \
+from serum._exceptions import InvalidDependency, UnregisteredDependency, \
     NoEnvironment, AmbiguousDependencies
 import threading
 

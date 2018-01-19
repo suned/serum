@@ -1,5 +1,5 @@
 from abc import ABCMeta
-from .exceptions import InvalidComponent
+from ._exceptions import InvalidComponent
 
 
 class _ComponentMeta(ABCMeta):

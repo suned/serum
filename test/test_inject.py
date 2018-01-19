@@ -1,6 +1,7 @@
 import unittest
 from serum import inject, Component, Environment, abstractmethod
-from serum.exceptions import NoEnvironment, UnregisteredDependency
+from serum._exceptions import NoEnvironment, UnregisteredDependency, \
+    InvalidDependency
 
 
 class SomeComponent(Component):
@@ -76,3 +77,10 @@ class InjectTests(unittest.TestCase):
         with Environment():
             self.assertIsInstance(d.chain, Chain)
             self.assertIsInstance(d.chain.some_component, SomeComponent)
+
+    def test_inject_non_component_fails(self):
+        class Test:
+            pass
+        with self.assertRaises(InvalidDependency):
+            inject(Test)
+

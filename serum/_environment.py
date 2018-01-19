@@ -1,12 +1,15 @@
+from unittest.mock import MagicMock
+
 from functools import wraps
-from typing import Type, TypeVar, Set
-from .exceptions import (
+from typing import Type, TypeVar, Set, Union
+
+from ._exceptions import (
     InvalidDependency,
     NoEnvironment,
     UnregisteredDependency,
     AmbiguousDependencies
 )
-from .component import Component
+from ._component import Component
 import threading
 import inspect
 from collections import Counter
@@ -27,19 +30,29 @@ class Environment:
         return Environment.__local_storage.current_env
 
     @staticmethod
+    def _mock(component: Type[C]):
+        current_env = Environment._current_env()
+        if current_env is None:
+            raise NoEnvironment(
+                'Can\t register mock outside environment'
+            )
+        mock = MagicMock()
+        current_env.__mocks[component] = mock
+        return mock
+
+
+    @staticmethod
     def _set_current_env(env: 'Environment'):
         Environment.__local_storage.current_env = env
 
     def __init__(self, *args: Type[C]) -> None:
         self.__registry: Set = set()
-        self.__is_active = False
         self.__old_current = None
+        self.__mocks = dict()
         for c in args:
             self.__use(c)
 
     def __use(self, component: Type[C]):
-        if self.__is_active:
-            raise ValueError('Can\'t change active environment')
         if not issubclass(component, Component):
             raise InvalidDependency(
                 'Attempt to register type that is not a Component: {}'.format(
@@ -67,21 +80,22 @@ class Environment:
         return Environment(*new_registry)
 
     def __enter__(self):
-        self.__is_active = True
         self.__old_current = Environment._current_env()
         Environment._set_current_env(self)
 
     def __exit__(self, exc_type, exc_val, exc_tb):
-        self.__is_active = False
+        self.__mocks = dict()
         Environment._set_current_env(self.__old_current)
         self.__old_current = None
 
     @staticmethod
-    def get(component: Type[C]) -> C:
+    def get(component: Type[C]) -> Union[C, MagicMock]:
         if Environment._current_env() is None:
             raise NoEnvironment(
                 'Can\'t inject components outside an environment'
             )
+        if component in Environment._current_env().__mocks:
+            return Environment._current_env().__mocks[component]
         try:
             subtype = Environment._find_subtype(component)
             return subtype()
@@ -120,6 +134,10 @@ class Environment:
                 'Unregistered dependency: {}'.format(str(component))
             )
         return max(subtypes, key=mro_distance)
+
+    @classmethod
+    def _find_mock(cls, component):
+        pass
 
 
 __all__ = ['Environment']

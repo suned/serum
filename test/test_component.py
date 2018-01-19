@@ -1,6 +1,6 @@
 import unittest
 from serum import Component, abstractmethod
-from serum.exceptions import InvalidComponent
+from serum._exceptions import InvalidComponent
 
 
 class ComponentTests(unittest.TestCase):

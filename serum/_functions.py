@@ -1,7 +1,9 @@
-from typing import TypeVar, Type, cast, Any
-from .exceptions import InvalidDependency
-from .component import Component
-from .environment import Environment
+from typing import TypeVar, Type, cast
+from unittest.mock import MagicMock
+
+from ._exceptions import InvalidDependency
+from ._component import Component
+from ._environment import Environment
 
 C = TypeVar('C', bound=Component)
 T = TypeVar('T')
@@ -26,4 +28,8 @@ def immutable(value: T) -> T:
     return cast(T, property(fget=get))
 
 
-__all__ = ['inject', 'immutable']
+def mock(component: Type[C]) -> MagicMock:
+    return Environment._mock(component)
+
+
+__all__ = ['inject', 'immutable', 'mock']
