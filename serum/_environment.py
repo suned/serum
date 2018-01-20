@@ -3,7 +3,7 @@ from unittest.mock import MagicMock
 from functools import wraps
 from typing import Type, TypeVar, Set, Union
 
-from ._exceptions import (
+from .exceptions import (
     InvalidDependency,
     NoEnvironment,
     UnregisteredDependency,

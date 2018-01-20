@@ -1,6 +1,6 @@
 import unittest
 from serum import mock, Component, inject, Environment
-from serum._exceptions import NoEnvironment
+from serum.exceptions import NoEnvironment
 
 
 class SomeComponent(Component):

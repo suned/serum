@@ -1,11 +1,21 @@
 from abc import ABCMeta
-from ._exceptions import InvalidComponent
+import inspect
+from .exceptions import InvalidComponent
+
+
+def _more_than_one_parameter_to_init(dct):
+    if '__init__' not in dct:
+        return False
+    signature = inspect.signature(dct['__init__'])
+    return len(signature.parameters) > 1
 
 
 class _ComponentMeta(ABCMeta):
     def __new__(mcs, name, bases, dct):
-        if "__init__" in dct:
-            raise InvalidComponent("Components should not have an __init__ method")
+        if _more_than_one_parameter_to_init(dct):
+            raise InvalidComponent(
+                "__init__ method in Components can only take 1 parameter"
+            )
         return ABCMeta.__new__(mcs, name, bases, dct)
 
 

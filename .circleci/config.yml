@@ -21,6 +21,7 @@ jobs:
           command: |
             . venv/bin/activate
             coverage run --source serum --branch  -m unittest
+            coverage report --fail-under 100
       - run:
           name: report metrics
           command: |

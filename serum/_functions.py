@@ -1,7 +1,7 @@
 from typing import TypeVar, Type, cast
 from unittest.mock import MagicMock
 
-from ._exceptions import InvalidDependency
+from .exceptions import InvalidDependency
 from ._component import Component
 from ._environment import Environment
 

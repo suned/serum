@@ -1,6 +1,6 @@
 import unittest
 from serum import inject, Component, Environment, abstractmethod
-from serum._exceptions import NoEnvironment, UnregisteredDependency, \
+from serum.exceptions import NoEnvironment, UnregisteredDependency, \
     InvalidDependency
 
 

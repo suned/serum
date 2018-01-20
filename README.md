@@ -12,6 +12,43 @@
 ```
 > pip install serum
 ```
+# Quickstart
+```python
+from serum import *
+
+class Log(Component):
+    @abstractmethod
+    def info(self, message: str):
+        pass
+
+class SimpleLog(Log):
+    def info(self, message: str):
+        print(message)
+
+class StubLog(Log):
+    def info(self, message: str):
+        pass
+
+class NeedsLog:
+    log = inject(Log)
+
+NeedsLog().log.info('Hello serum!')  # raises: NoEnvironment
+
+with Environment():
+    NeedsLog().log.info('Hello serum!')  # raises: UnregisteredDependency
+
+with Environment(SimpleLog):
+    NeedsLog().log.info('Hello serum!')  # outputs: Hello serum!
+
+with Environment(StubLog):
+    NeedsLog().log.info('Hello serum!')  # doesn't output anything
+
+class NeedsSimpleLog:
+    log = inject(SimpleLog)
+
+with Environment():
+    NeedsSimpleLog().log.info('Hello serum!')  # outputs: Hello serum!
+```
 # Documentation
 `serum` uses 3 main abstractions: `Component`, `Environment` and `inject`.
 
@@ -98,11 +135,16 @@ This is just convenience for:
 class Immutable(Component):
     value = property(fget=lambda _: 1)
 ```
-`Component`s can't define an `__init__` method.
+`Component`s can only define an `__init__` method that takes 1 parameter.
 ```python
-class InvalidComponent(Component):  # raises InvalidComponent: Components should not have an __init__ method
+class ValidComponent(Component):  # OK!
+    some_dependency = inject(SomeDependency)
     def __init__(self):
-        pass
+        self.value = self.some_dependency.method()
+
+class InvalidComponent(Component):  # raises: InvalidComponent: __init__ method in Components can only take 1 parameter
+    def __init__(self, a):
+        self.a = a
 ```
 To construct `Component`s with dependencies, you should instead use `inject`
 ```python
@@ -136,21 +178,6 @@ class ConcreteLog(AbstractLog):
 with Environment(ConcreteLog):
     instance.log  # Ok!
  
-```
-`Component`s are injected lazily. This means that you can instantiate classes
-with injected dependencies outside an environment and use it in different
-environments with different effects.
-```python
-class MockLog(AbstractLog):
-    def info(self, message):
-        pass
-
-instance = NeedsLog()
-with Environment(ConcreteLog):
-    instance.log.info('Hello serum!')  # outputs: Hello serum!
-
-with Environment(MockLog):
-    instance.log.info('Hello serum!')  # doesn't output anything
 ```
 `Environment`s are local to each thread. This means that when using multi-threading
 each thread must define its own environment.
