@@ -151,6 +151,10 @@ To construct `Component`s with dependencies, you should instead use `inject`
 class ComponentWithDependencies(Component):
     log = inject(Log)
 ```
+Note that if you access injected members in the constructor of any type,
+that type can only be instantiated inside an environment.
+
+
 `Component`s can be abstract. Abstract `Component`s can't be injected in an
 `Environment` that doesn't provide a concrete implementation. For convenience you can import
 `abstractmethod`, `abstractclassmethod` or `abstractclassmethod` from `serum`,
@@ -249,27 +253,10 @@ with Environment():
     assert isinstance(needs_sub.injected, MagicMock)
     assert isinstance(needs_subsub.injected, SubSub)
 ```
-`serum` is designed for type inference with `mypy` (or some other PEP 484 tool)
-(Work in progress). I find it works best with PyCharm's type checker.
-```python
-# my_script.py
-from serum import inject, Component, abstractmethod
+`serum` is designed for type inference with PEP 484 tools. (Work in progress). 
+This feature is currently only supported for the PyCharm type checker.
 
-
-class AbstractLog(Component):
-    @abstractmethod
-    def info(self, message):
-        pass
-
-
-class NeedsLog:
-    log = inject(AbstractLog)
-    def test(self):
-        self.log.warning('DANGER!')
-```
-```
-> mypy my_script.py  # should fail, but currently doesn't :(
-```
+![type inference in PyCharm](https://i.imgur.com/8fvvAQ2.png)
 # Why?
 If you've been researching Dependency Injection frameworks for python,
 you've no doubt come across this opinion:
