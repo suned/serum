@@ -40,7 +40,7 @@ def git_push():
 
 def git_commit(version):
     subprocess.call(['git', 'add', 'version.txt'])
-    subprocess.call(['git', 'commit', '-m', 'bump version to ' + version])
+    subprocess.call(['git', 'commit', '-m', 'release version ' + version])
 
 
 def run(release_type):

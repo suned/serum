@@ -38,7 +38,7 @@ jobs:
           command: |
             python3 -m venv venv
             . venv/bin/activate
-            pip install twine semver
+            pip install twine semver wheel
       - run:
           name: release to pypi
           command: |
