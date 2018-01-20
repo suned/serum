@@ -38,10 +38,16 @@ def git_push():
     subprocess.call(['git', 'push', '--tags'])
 
 
+def git_commit(version):
+    subprocess.call(['git', 'add', 'version.txt'])
+    subprocess.call(['git', 'commit', '-m', 'bump version to ' + version])
+
+
 def run(release_type):
     version = read_version('version.txt')
     new_version = increment_version(version, release_type)
     write_version('version.txt', new_version)
+    git_commit(new_version)
     git_tag(new_version)
     git_push()
 
