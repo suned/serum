@@ -28,6 +28,11 @@ class Environment:
 
     with Environment(MyDependency):
         NeedsDependency()
+    or
+
+    @Environment(MyDependency):
+    def fun():
+        NeedsDependency()
     """
     __local_storage = _LocalStorage()
 
