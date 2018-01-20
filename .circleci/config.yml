@@ -32,6 +32,7 @@ jobs:
       - image: circleci/python:3.6.1
     working_directory: ~/serum
     steps:
+      - checkout
       - run:
           name: install dependencies
           command: |
