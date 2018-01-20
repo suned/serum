@@ -15,7 +15,7 @@ jobs:
           command: |
             python3 -m venv venv
             . venv/bin/activate
-            pip install codecov semver twine
+            pip install codecov
       - run:
           name: run tests
           command: |
@@ -37,7 +37,7 @@ jobs:
           command: |
             python3 -m venv venv
             . venv/bin/activate
-            pip install codecov semver twine
+            pip install twine
       - run:
           name: release to pypi
           command: |
@@ -48,7 +48,10 @@ workflows:
   version: 2
   test_and_deploy:
     jobs:
-      - test
+      - test:
+        filters:
+          tags:
+            only: /.*/
       - deploy:
           requires:
             - test
