@@ -253,7 +253,7 @@ with Environment():
     assert isinstance(needs_sub.injected, MagicMock)
     assert isinstance(needs_subsub.injected, SubSub)
 ```
-`serum` is designed for type inference with PEP 484 tools. (Work in progress). 
+`serum` is designed for type inference with PEP 484 tools (work in progress). 
 This feature is currently only supported for the PyCharm type checker.
 
 ![type inference in PyCharm](https://i.imgur.com/8fvvAQ2.png)
@@ -281,4 +281,4 @@ designing classes that follow the Dependency Inversion Principle:
 
 This is achieved by letting inheritance being the principle way of providing
 dependencies and allowing dependencies to be abstract. See the `example.py` for a
-detailed tutorial.
+detailed tutorial (work in progress).
