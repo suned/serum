@@ -81,6 +81,7 @@ If you want to always inject the same instance of an object, inherit from `Singl
 `Singletons` are always instantiated lazily.
 ```python
 from serum import Singleton
+
 class ExpensiveObject(Singleton):
     pass
 
