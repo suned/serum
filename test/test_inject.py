@@ -84,3 +84,10 @@ class InjectTests(unittest.TestCase):
         with self.assertRaises(InvalidDependency):
             inject(Test)
 
+    def test_injected_is_always_same_instance(self):
+        with Environment():
+            d1 = Dependent()
+            d2 = Dependent()
+            self.assertIs(d1.some_component, d1.some_component)
+            self.assertIsNot(d1.some_component, d2.some_component)
+

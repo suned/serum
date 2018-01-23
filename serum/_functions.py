@@ -22,9 +22,12 @@ def inject(component: Type[C]) -> C:
             )
         )
 
-    def get(_) -> C:
-        return Environment.provide(component)
-    return cast(C, property(fget=get))
+    def get() -> C:
+        instance = Environment.provide(component)
+        while True:
+            yield instance
+    component_generator = get()
+    return cast(C, property(fget=lambda _: next(component_generator)))
 
 
 def immutable(value: T) -> T:
