@@ -1,7 +1,7 @@
 from unittest.mock import MagicMock
 
 from functools import wraps
-from typing import Type, TypeVar, Set, Union, Dict
+from typing import Type, TypeVar, Set, Union, Dict, Tuple
 
 from .exceptions import (
     InvalidDependency,
@@ -64,9 +64,15 @@ class Environment:
         self.__old_current: Environment = None
         self.__mocks: Dict[Type[C], MagicMock] = dict()
         self.__singletons: Dict[Type[C], C] = dict()
-        self.__instances = dict()
+        self.__instances: Dict[Tuple[Type[C], object], C] = dict()
         for c in args:
             self.__use(c)
+
+    def get_mock(self, component: Type[C]):
+        return self.__mocks[component]
+
+    def is_mocked(self, component: Type[C]):
+        return component in self.__mocks
 
     def __use(self, component: Type[C]):
         if not issubclass(component, Component):
@@ -124,6 +130,9 @@ class Environment:
         self.__old_current = Environment._current_env()
         Environment._set_current_env(self)
 
+    def has_singleton_instance(self, singleton_type):
+        return singleton_type in self.__singletons
+
     def __exit__(self, exc_type, exc_val, exc_tb):
         """
         De-register this environment as the current environment in this thread
@@ -151,47 +160,41 @@ class Environment:
             )
         current_env = Environment._current_env()
 
-        def singleton(st: Type[C]) -> C:
-            if st in current_env.__singletons:
-                return current_env.__singletons[st]
+        def singleton(singleton_type: Type[C]) -> C:
+            if current_env.has_singleton_instance(singleton_type):
+                return current_env.get_singleton(singleton_type)
             else:
-                singleton_instance = st()
-                current_env.__singletons[st] = singleton_instance
+                singleton_instance = singleton_type()
+                current_env.add_singleton(
+                    singleton_type,
+                    singleton_instance
+                )
                 return singleton_instance
 
-        def instance(st: Type[C]) -> C:
-            if (component, caller) in current_env.__instances:
-                return current_env.__instances[(component, caller)]
-            component_instance = st()
-            current_env.__instances[(component, caller)] = component_instance
+        def instance(component_type: Type[C]) -> C:
+            if current_env.has_instance(component, caller):
+                return current_env.get_instance(component, caller)
+            component_instance = component_type()
+            current_env.set_instance(component, caller, component_instance)
             return component_instance
-
-        def mock() -> MagicMock:
-            return current_env.__mocks[component]
-
-        def is_mocked():
-            return component in current_env.__mocks
 
         def is_singleton(st):
             return issubclass(st, Singleton)
 
-        if is_mocked():
-            return mock()
+        def instantiate(component_type: Type[C]) -> C:
+            if is_singleton(component_type):
+                return singleton(component_type)
+            return instance(component_type)
+
+        if current_env.is_mocked(component):
+            return current_env.get_mock(component)
         try:
             try:
                 subtype = Environment._find_subtype(component)
-                if is_singleton(subtype):
-                    return singleton(subtype)
-                return instance(subtype)
+                return instantiate(subtype)
             except UnregisteredDependency:
                 try:
-                    if is_singleton(component):
-                        return singleton(component)
-                    if (component, caller) in current_env.__instances:
-                        return current_env.__instances[(component, caller)]
-                    instance = component()
-                    current_env.__instances[(component, caller)] = instance
-                    return instance
+                    return instantiate(component)
                 except TypeError:
                     raise UnregisteredDependency(
                         'No concrete implementation of {} found'.format(
@@ -231,6 +234,21 @@ class Environment:
                 'Unregistered dependency: {}'.format(str(component))
             )
         return max(subtypes, key=mro_distance)
+
+    def get_singleton(self, singleton_type):
+        return self.__singletons[singleton_type]
+
+    def add_singleton(self, singleton_type, instance):
+        self.__singletons[singleton_type] = instance
+
+    def has_instance(self, component, caller):
+        return (component, caller) in self.__instances
+
+    def get_instance(self, component, caller):
+        return self.__instances[(component, caller)]
+
+    def set_instance(self, component, caller, component_instance):
+        self.__instances[(component, caller)] = component_instance
 
 
 __all__ = ['Environment']
