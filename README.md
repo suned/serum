@@ -14,7 +14,7 @@
 ```
 # Quickstart
 ```python
-from serum import *
+from serum import inject, Component, Environment, abstractmethod
 
 class Log(Component):
     @abstractmethod
