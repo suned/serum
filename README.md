@@ -50,8 +50,15 @@ with Environment():
     NeedsSimpleLog().log.info('Hello serum!')  # outputs: Hello serum!
 ```
 # Documentation
-`serum` uses 3 main abstractions: `Component`, `Environment` and `inject`.
+- [`Component`](#component)
+- [`Singleton`](#singleton)
+- [`inject`](#inject)
+- [`Environment`](#environment)
+- [`immutable`](#immutable)
+- [`mock`](#testing)
+- [PEP 484](#pep-484)
 
+## `Component`
 `Component`s are dependencies that can be injected.
 ```python
 from serum import Component, Environment, inject
@@ -66,100 +73,6 @@ class NeedsLog:
 instance = NeedsLog()
 with Environment():
     assert isinstance(instance.log, Log)
-```
-An injected member of an instance will always refer to the same component 
-instance. Injected members of different instances will refer to different
-component instances
-```python
-with Environment():
-    instance1 = NeedsLog()
-    assert instance1.log is instance1.log
-    instance2 = NeedsLog()
-    assert instance2.log is not instance1.log
-``` 
-If you want to always inject the same instance of an object, inherit from `Singleton`.
-`Singletons` are always instantiated lazily.
-```python
-from serum import Singleton
-
-class ExpensiveObject(Singleton):
-    pass
-
-class NeedsExpensiveObject:
-    expensive_instance = inject(ExpensiveObject)
-
-with Environment():
-    instance1 = NeedsExpensiveObject()
-    instance2 = NeedsExpensiveObject()
-    assert instance1.expensive_instance is instance2.expensive_instance
-```
-`Environment`s provide implementations of `Components`. An `Environment` will always provide the most
-specific subtype of the requested type (in Method Resolution Order).
-```python
-class MockLog(Log):
-    def info(self, message):
-        pass
-
-with Environment(MockLog):
-    assert isinstance(instance.log, MockLog)
-```
-It is an error to inject a type in an `Environment` that provides two or more equally specific subtypes of that type:
-```python
-class FileLog(Log):
-    _file = 'log.txt'
-    def info(self, message):
-        with open(self._file, 'w') as f:
-            f.write(message)
-
-with Environment(MockLog, FileLog):
-    instance.log  # raises: AmbiguousDependencies: Attempt to inject type <class 'Log'> with equally specific provided subtypes: <class 'MockLog'>, <class 'FileLog'>
-```
-`Environment`s can also be used as decorators:
-```python
-test_environment = Environment(MockLog)
-
-@test_environment
-def f():
-    assert isinstance(instance.log, MockLog)
-
-```
-You can only provide subtypes of `Component` with `Environment`.
-```python
-class C:
-    pass
-
-Environment(C)  # raises: InvalidDependency: Attempt to register type that is not a Component: <class 'C'> 
-``` 
-Similarly, you can't inject types that are not `Component` subtypes.
-```python
-class InvalidDependent:
-    dependency = inject(C)  # raises: InvalidDependency: Attempt to inject type that is not a Component: <class 'C'>
-```
-Injected `Component`s can't be accessed outside an `Environment` context:
-```python
-instance.log  # raises NoEnvironment: Can't inject components outside an environment 
-```
-Injected `Component`s are immutable
-```python
-with Environment():
-    instance.log = 'mutate this'  # raises AttributeError: Can't set property
-```
-You can define mutable static fields in a `Component`. If you want to define 
-immutable static fields (constants), `serum` provides the `immutable` utility
-that also supports type inference with PEP 484 tools. 
-```python
-from serum import immutable
-
-class Immutable(Component):
-    value = immutable(1)
-
-i = Immutable()
-i.value = 2  # raises AttributeError: Can't set property
-```
-This is just convenience for:
-```python
-class Immutable(Component):
-    value = property(fget=lambda _: 1)
 ```
 `Component`s can only define an `__init__` method that takes 1 parameter.
 ```python
@@ -234,6 +147,61 @@ with Environment(ConcreteLog):
     instance.log  # Ok!
  
 ```
+## `Singleton`
+If you want to always inject the same instance of an object, inherit from `Singleton`.
+`Singletons` are always instantiated lazily.
+```python
+from serum import Singleton
+
+class ExpensiveObject(Singleton):
+    pass
+
+class NeedsExpensiveObject:
+    expensive_instance = inject(ExpensiveObject)
+
+with Environment():
+    instance1 = NeedsExpensiveObject()
+    instance2 = NeedsExpensiveObject()
+    assert instance1.expensive_instance is instance2.expensive_instance
+```
+## `Environment`
+`Environment`s provide implementations of `Components`. An `Environment` will always provide the most
+specific subtype of the requested type (in Method Resolution Order).
+```python
+class MockLog(Log):
+    def info(self, message):
+        pass
+
+with Environment(MockLog):
+    assert isinstance(instance.log, MockLog)
+```
+It is an error to inject a type in an `Environment` that provides two or more equally specific subtypes of that type:
+```python
+class FileLog(Log):
+    _file = 'log.txt'
+    def info(self, message):
+        with open(self._file, 'w') as f:
+            f.write(message)
+
+with Environment(MockLog, FileLog):
+    instance.log  # raises: AmbiguousDependencies: Attempt to inject type <class 'Log'> with equally specific provided subtypes: <class 'MockLog'>, <class 'FileLog'>
+```
+`Environment`s can also be used as decorators:
+```python
+test_environment = Environment(MockLog)
+
+@test_environment
+def f():
+    assert isinstance(instance.log, MockLog)
+
+```
+You can only provide subtypes of `Component` with `Environment`.
+```python
+class C:
+    pass
+
+Environment(C)  # raises: InvalidDependency: Attempt to register type that is not a Component: <class 'C'> 
+```
 `Environment`s are local to each thread. This means that when using multi-threading
 each thread must define its own environment.
 ```python
@@ -250,6 +218,51 @@ with Environment(ConcreteLog):
     threading.Thread(target=worker_without_environment()).start()
     threading.Thread(target=worker_with_environment()).start()
 ```
+## `inject`
+Similarly, you can't inject types that are not `Component` subtypes.
+```python
+class InvalidDependent:
+    dependency = inject(C)  # raises: InvalidDependency: Attempt to inject type that is not a Component: <class 'C'>
+```
+Injected `Component`s can't be accessed outside an `Environment` context:
+```python
+instance.log  # raises NoEnvironment: Can't inject components outside an environment 
+```
+Injected `Component`s are immutable
+```python
+with Environment():
+    instance.log = 'mutate this'  # raises AttributeError: Can't set property
+```
+An injected member of an instance will always refer to the same component 
+instance. Injected members of different instances will refer to different
+component instances
+```python
+with Environment():
+    instance1 = NeedsLog()
+    assert instance1.log is instance1.log
+    instance2 = NeedsLog()
+    assert instance2.log is not instance1.log
+``` 
+## `immutable`
+You can define mutable static fields in a `Component`. If you want to define 
+immutable static fields (constants) in components (or any other classes), 
+`serum` provides the `immutable` utility
+that also supports type inference with PEP 484 tools. 
+```python
+from serum import immutable
+
+class Immutable(Component):
+    value = immutable(1)
+
+i = Immutable()
+i.value = 2  # raises AttributeError: Can't set property
+```
+This is just convenience for:
+```python
+class Immutable(Component):
+    value = property(fget=lambda _: 1)
+```
+## `mock`
 `serum` has support for injecting `MagicMock`s from the builtin
 `unittest.mock` library in unittests using the `mock` utility
 function. `mock` is only usable inside an an environment context. Mocks are reset
@@ -304,6 +317,7 @@ with Environment():
     assert isinstance(needs_sub.injected, MagicMock)
     assert isinstance(needs_subsub.injected, SubSub)
 ```
+## PEP 484
 `serum` is designed for type inference with PEP 484 tools (work in progress). 
 This feature is currently only supported for the PyCharm type checker.
 
