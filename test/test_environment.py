@@ -1,8 +1,8 @@
 import unittest
 
-from serum import Environment, Component, abstractmethod, Singleton
+from serum import Environment, Component, abstractmethod, Singleton, inject
 from serum.exceptions import InvalidDependency, UnregisteredDependency, \
-    NoEnvironment, AmbiguousDependencies
+    NoEnvironment, AmbiguousDependencies, CircularDependency
 import threading
 
 
@@ -134,5 +134,41 @@ class EnvironmentTests(unittest.TestCase):
     def test_singleton_is_always_same_instance(self):
         with Environment():
             s1 = Environment.provide(SomeSingleton, self)
-            s2 = Environment.provide(SomeSingleton, self)
+            s2 = Environment.provide(SomeSingleton, object())
             self.assertIs(s1, s2)
+
+    def test_circular_dependency(self):
+        class AbstractA(Component):
+            pass
+
+        class AbstractB(Component):
+            pass
+
+        class A(AbstractA):
+            b = inject(AbstractB)
+
+            def __init__(self):
+                self.b
+
+        class B(AbstractB):
+            a = inject(AbstractA)
+
+            def __init__(self):
+                self.a
+
+        class Dependent:
+            a = inject(AbstractA)
+
+        with Environment(A, B):
+            with self.assertRaises(CircularDependency):
+                Dependent().a
+
+    def test_subtype_is_singleton(self):
+        class SomeComponentSingleton(SomeComponent, Singleton):
+            pass
+        with Environment(SomeComponentSingleton):
+            s1 = Environment.provide(SomeComponent, object())
+            s2 = Environment.provide(SomeComponent, object())
+            self.assertIs(s1, s2)
+            s3 = Environment.provide(SomeComponentSingleton, object())
+            self.assertIs(s1, s3)

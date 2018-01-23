@@ -152,12 +152,12 @@ class Environment:
             )
         current_env = Environment._current_env()
 
-        def singleton():
-            if subtype in current_env.__singletons:
-                return current_env.__singletons[subtype]
+        def singleton(st):
+            if st in current_env.__singletons:
+                return current_env.__singletons[st]
             else:
-                singleton_instance = subtype()
-                current_env.__singletons[subtype] = singleton_instance
+                singleton_instance = st()
+                current_env.__singletons[st] = singleton_instance
                 return singleton_instance
 
         def instance(st):
@@ -182,10 +182,12 @@ class Environment:
             try:
                 subtype = Environment._find_subtype(component)
                 if is_singleton(subtype):
-                    return singleton()
+                    return singleton(subtype)
                 return instance(subtype)
             except UnregisteredDependency:
                 try:
+                    if is_singleton(component):
+                        return singleton(component)
                     if (component, caller) in current_env.__instances:
                         return current_env.__instances[(component, caller)]
                     instance = component()
@@ -204,7 +206,6 @@ class Environment:
                     str(caller)
                 )
             )
-
 
     @staticmethod
     def _find_subtype(component: Type[C]) -> Union[Type[C], Type[S]]:
