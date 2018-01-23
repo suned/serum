@@ -180,7 +180,32 @@ class ComponentWithDependencies(Component):
 Note that if you access injected members in the constructor of any type,
 that type can only be instantiated inside an environment.
 
+Also note that circular dependencies preventing component instantiation leads to
+an error.
+```python
+class AbstractA(Component):
+    pass
 
+class AbstractB(Component):
+    pass
+
+class A(AbstractA):
+    b = inject(AbstractB)
+
+    def __init__(self):
+        self.b
+
+class B(AbstractB):
+    a = inject(AbstractA)
+    def __init__(self):
+        self.a
+
+class Dependent:
+    a = inject(AbstractA)
+
+with Environment(A, B):
+    Dependent().a  # raises: CircularDependency: Circular dependency encountered while injecting <class 'AbstractA'> in <B object at 0x1061e3898>
+```
 `Component`s can be abstract. Abstract `Component`s can't be injected in an
 `Environment` that doesn't provide a concrete implementation. For convenience you can import
 `abstractmethod`, `abstractclassmethod` or `abstractclassmethod` from `serum`,
