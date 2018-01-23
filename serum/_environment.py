@@ -15,7 +15,6 @@ import inspect
 from collections import Counter
 
 C = TypeVar('C', bound=Component)
-S = TypeVar('S', bound=Singleton)
 
 
 class _LocalStorage(threading.local):
@@ -64,7 +63,7 @@ class Environment:
         self.__registry: Set[Type[C]] = set()
         self.__old_current: Environment = None
         self.__mocks: Dict[Type[C], MagicMock] = dict()
-        self.__singletons: Dict[Type[C], S] = dict()
+        self.__singletons: Dict[Type[C], C] = dict()
         self.__instances = dict()
         for c in args:
             self.__use(c)
@@ -138,7 +137,7 @@ class Environment:
         self.__old_current = None
 
     @staticmethod
-    def provide(component: Type[C], caller: object) -> Union[C, MagicMock, S]:
+    def provide(component: Type[C], caller: object) -> Union[C, MagicMock]:
         """
         Provide a component in this environment
         :param caller:
@@ -152,7 +151,7 @@ class Environment:
             )
         current_env = Environment._current_env()
 
-        def singleton(st):
+        def singleton(st: Type[C]) -> C:
             if st in current_env.__singletons:
                 return current_env.__singletons[st]
             else:
@@ -160,14 +159,14 @@ class Environment:
                 current_env.__singletons[st] = singleton_instance
                 return singleton_instance
 
-        def instance(st):
+        def instance(st: Type[C]) -> C:
             if (component, caller) in current_env.__instances:
                 return current_env.__instances[(component, caller)]
             component_instance = st()
             current_env.__instances[(component, caller)] = component_instance
             return component_instance
 
-        def mock():
+        def mock() -> MagicMock:
             return current_env.__mocks[component]
 
         def is_mocked():
@@ -208,7 +207,7 @@ class Environment:
             )
 
     @staticmethod
-    def _find_subtype(component: Type[C]) -> Union[Type[C], Type[S]]:
+    def _find_subtype(component: Type[C]) -> Type[C]:
         def mro_distance(subtype: Type[C]) -> int:
             mro = inspect.getmro(subtype)
             return mro.index(component)
