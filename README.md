@@ -55,7 +55,7 @@ with Environment():
 - [`Environment`](#environment)
 - [`inject`](#inject)
 - [`immutable`](#immutable)
-- [`mock`](#testing)
+- [`mock`](#mock)
 - [PEP 484](#pep-484)
 
 ## `Component`
