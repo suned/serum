@@ -67,6 +67,31 @@ instance = NeedsLog()
 with Environment():
     assert isinstance(instance.log, Log)
 ```
+An injected member of an instance will always refer to the same component 
+instance. Injected members of different instances will refer to different
+component instances
+```python
+with Environment():
+    instance1 = NeedsLog()
+    assert instance1.log is instance1.log
+    instance2 = NeedsLog()
+    assert instance2.log is not instance1.log
+``` 
+If you want to always inject the same instance of an object, inherit from `Singleton`.
+`Singletons` are always instantiated lazily.
+```python
+from serum import Singleton
+class ExpensiveObject(Singleton):
+    pass
+
+class NeedsExpensiveObject:
+    expensive_instance = inject(ExpensiveObject)
+
+with Environment():
+    instance1 = NeedsExpensiveObject()
+    instance2 = NeedsExpensiveObject()
+    assert instance1.expensive_instance is instance2.expensive_instance
+```
 `Environment`s provide implementations of `Components`. An `Environment` will always provide the most
 specific subtype of the requested type (in Method Resolution Order).
 ```python
