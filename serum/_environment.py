@@ -7,8 +7,8 @@ from .exceptions import (
     InvalidDependency,
     NoEnvironment,
     UnregisteredDependency,
-    AmbiguousDependencies
-)
+    AmbiguousDependencies,
+    CircularDependency)
 from ._component import Component, Singleton
 import threading
 import inspect
@@ -65,6 +65,7 @@ class Environment:
         self.__old_current: Environment = None
         self.__mocks: Dict[Type[C], MagicMock] = dict()
         self.__singletons: Dict[Type[C], S] = dict()
+        self.__instances = dict()
         for c in args:
             self.__use(c)
 
@@ -137,9 +138,10 @@ class Environment:
         self.__old_current = None
 
     @staticmethod
-    def provide(component: Type[C]) -> Union[C, MagicMock, S]:
+    def provide(component: Type[C], caller: object) -> Union[C, MagicMock, S]:
         """
         Provide a component in this environment
+        :param caller:
         :param component: The type to provide
         :return: Instance of the most specific subtype of component
                  in this environment
@@ -154,26 +156,55 @@ class Environment:
             if subtype in current_env.__singletons:
                 return current_env.__singletons[subtype]
             else:
-                instance = subtype()
-                current_env.__singletons[subtype] = instance
-                return instance
+                singleton_instance = subtype()
+                current_env.__singletons[subtype] = singleton_instance
+                return singleton_instance
 
-        if component in current_env.__mocks:
+        def instance(st):
+            if (component, caller) in current_env.__instances:
+                return current_env.__instances[(component, caller)]
+            component_instance = st()
+            current_env.__instances[(component, caller)] = component_instance
+            return component_instance
+
+        def mock():
             return current_env.__mocks[component]
+
+        def is_mocked():
+            return component in current_env.__mocks
+
+        def is_singleton(st):
+            return issubclass(st, Singleton)
+
+        if is_mocked():
+            return mock()
         try:
-            subtype = Environment._find_subtype(component)
-            if issubclass(subtype, Singleton):
-                return singleton()
-            return subtype()
-        except UnregisteredDependency:
             try:
-                return component()
-            except TypeError:
-                raise UnregisteredDependency(
-                    'No concrete implementation of {} found'.format(
-                        str(component)
+                subtype = Environment._find_subtype(component)
+                if is_singleton(subtype):
+                    return singleton()
+                return instance(subtype)
+            except UnregisteredDependency:
+                try:
+                    if (component, caller) in current_env.__instances:
+                        return current_env.__instances[(component, caller)]
+                    instance = component()
+                    current_env.__instances[(component, caller)] = instance
+                    return instance
+                except TypeError:
+                    raise UnregisteredDependency(
+                        'No concrete implementation of {} found'.format(
+                            str(component)
+                        )
                     )
+        except RecursionError:
+            raise CircularDependency(
+                'Circular dependency encountered while injecting {} in {}'.format(
+                    str(component),
+                    str(caller)
                 )
+            )
+
 
     @staticmethod
     def _find_subtype(component: Type[C]) -> Union[Type[C], Type[S]]:

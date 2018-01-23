@@ -22,35 +22,8 @@ def inject(component: Type[C]) -> C:
             )
         )
 
-    def generate() -> C:
-        import ipdb
-        ipdb.sset_trace()
-        callers = dict()
-        while True:
-            caller = yield
-            if caller in callers:
-                instance = callers[caller]
-                yield instance
-            else:
-                instance = Environment.provide(component)
-                callers[caller] = instance
-                yield instance
-
-    component_generator = generate()
-    next(component_generator)
-
     def get_instance(caller):
-        try:
-            instance = component_generator.send(caller)
-            next(component_generator)
-            return instance
-        except ValueError:
-            raise CircularDependency(
-                'Circular dependency encountered while injecting {} in {}'.format(
-                    str(component),
-                    str(caller)
-                )
-            )
+        return Environment.provide(component, caller)
 
     return cast(C, property(fget=get_instance))
 
