@@ -52,8 +52,8 @@ with Environment():
 # Documentation
 - [`Component`](#component)
 - [`Singleton`](#singleton)
-- [`inject`](#inject)
 - [`Environment`](#environment)
+- [`inject`](#inject)
 - [`immutable`](#immutable)
 - [`mock`](#testing)
 - [PEP 484](#pep-484)
