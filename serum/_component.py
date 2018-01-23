@@ -41,4 +41,8 @@ class Component(metaclass=_ComponentMeta):
     pass
 
 
-__all__ = ['Component']
+class Singleton(Component):
+    pass
+
+
+__all__ = ['Component', 'Singleton']

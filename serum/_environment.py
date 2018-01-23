@@ -1,7 +1,7 @@
 from unittest.mock import MagicMock
 
 from functools import wraps
-from typing import Type, TypeVar, Set, Union
+from typing import Type, TypeVar, Set, Union, Dict
 
 from .exceptions import (
     InvalidDependency,
@@ -9,12 +9,13 @@ from .exceptions import (
     UnregisteredDependency,
     AmbiguousDependencies
 )
-from ._component import Component
+from ._component import Component, Singleton
 import threading
 import inspect
 from collections import Counter
 
 C = TypeVar('C', bound=Component)
+S = TypeVar('S', bound=Singleton)
 
 
 class _LocalStorage(threading.local):
@@ -60,9 +61,10 @@ class Environment:
         Construct a new environment
         :param args: Components to provide in this environment
         """
-        self.__registry: Set = set()
-        self.__old_current = None
-        self.__mocks = dict()
+        self.__registry: Set[Type[C]] = set()
+        self.__old_current: Environment = None
+        self.__mocks: Dict[Type[C], MagicMock] = dict()
+        self.__singletons: Dict[Type[C], S] = dict()
         for c in args:
             self.__use(c)
 
@@ -135,7 +137,7 @@ class Environment:
         self.__old_current = None
 
     @staticmethod
-    def provide(component: Type[C]) -> Union[C, MagicMock]:
+    def provide(component: Type[C]) -> Union[C, MagicMock, S]:
         """
         Provide a component in this environment
         :param component: The type to provide
@@ -146,10 +148,22 @@ class Environment:
             raise NoEnvironment(
                 'Can\'t inject components outside an environment'
             )
-        if component in Environment._current_env().__mocks:
-            return Environment._current_env().__mocks[component]
+        current_env = Environment._current_env()
+
+        def singleton():
+            if subtype in current_env.__singletons:
+                return current_env.__singletons[subtype]
+            else:
+                instance = subtype()
+                current_env.__singletons[subtype] = instance
+                return instance
+
+        if component in current_env.__mocks:
+            return current_env.__mocks[component]
         try:
             subtype = Environment._find_subtype(component)
+            if issubclass(subtype, Singleton):
+                return singleton()
             return subtype()
         except UnregisteredDependency:
             try:
@@ -162,7 +176,7 @@ class Environment:
                 )
 
     @staticmethod
-    def _find_subtype(component: Type[C]) -> Type[C]:
+    def _find_subtype(component: Type[C]) -> Union[Type[C], Type[S]]:
         def mro_distance(subtype: Type[C]) -> int:
             mro = inspect.getmro(subtype)
             return mro.index(component)

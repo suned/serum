@@ -1,7 +1,7 @@
 from typing import TypeVar, Type, cast
 from unittest.mock import MagicMock
 
-from .exceptions import InvalidDependency
+from .exceptions import InvalidDependency, CircularDependency
 from ._component import Component
 from ._environment import Environment
 
@@ -22,12 +22,37 @@ def inject(component: Type[C]) -> C:
             )
         )
 
-    def get() -> C:
-        instance = Environment.provide(component)
+    def generate() -> C:
+        import ipdb
+        ipdb.sset_trace()
+        callers = dict()
         while True:
-            yield instance
-    component_generator = get()
-    return cast(C, property(fget=lambda _: next(component_generator)))
+            caller = yield
+            if caller in callers:
+                instance = callers[caller]
+                yield instance
+            else:
+                instance = Environment.provide(component)
+                callers[caller] = instance
+                yield instance
+
+    component_generator = generate()
+    next(component_generator)
+
+    def get_instance(caller):
+        try:
+            instance = component_generator.send(caller)
+            next(component_generator)
+            return instance
+        except ValueError:
+            raise CircularDependency(
+                'Circular dependency encountered while injecting {} in {}'.format(
+                    str(component),
+                    str(caller)
+                )
+            )
+
+    return cast(C, property(fget=get_instance))
 
 
 def immutable(value: T) -> T:

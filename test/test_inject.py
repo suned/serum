@@ -87,7 +87,10 @@ class InjectTests(unittest.TestCase):
     def test_injected_is_always_same_instance(self):
         with Environment():
             d1 = Dependent()
-            d2 = Dependent()
             self.assertIs(d1.some_component, d1.some_component)
-            self.assertIsNot(d1.some_component, d2.some_component)
 
+    def test_injected_are_different_instances(self):
+        with Environment():
+            d1 = Dependent()
+            d2 = Dependent()
+            self.assertIsNot(d1.some_component, d2.some_component)

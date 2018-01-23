@@ -34,3 +34,7 @@ class AmbiguousDependencies(Exception):
     Exception type to signal registering conflicting types in an environment
     """
     pass
+
+
+class CircularDependency(Exception):
+    pass
