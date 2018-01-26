@@ -122,7 +122,7 @@ with Environment(A, B):
 `Component`s can be abstract. Abstract `Component`s can't be injected in an
 `Environment` that doesn't provide a concrete implementation. For convenience you can import
 `abstractmethod`, `abstractclassmethod` or `abstractclassmethod` from `serum`,
-but they are simply references to the equivalent decorators from the `abc` module 
+but they are refer to the decorators from the `abc` module 
 in the standard library.
 ```python
 from serum import abstractmethod
@@ -149,7 +149,6 @@ with Environment(ConcreteLog):
 ```
 ## `Singleton`
 If you want to always inject the same instance of an object, inherit from `Singleton`.
-`Singletons` are always instantiated lazily.
 ```python
 from serum import Singleton
 
@@ -219,7 +218,8 @@ with Environment(ConcreteLog):
     threading.Thread(target=worker_with_environment()).start()
 ```
 ## `inject`
-Similarly, you can't inject types that are not `Component` subtypes.
+Just as you can only provide subtypes of `Component` with `Environment`, 
+you can only inject subtypes of `Component`.
 ```python
 class InvalidDependent:
     dependency = inject(C)  # raises: InvalidDependency: Attempt to inject type that is not a Component: <class 'C'>

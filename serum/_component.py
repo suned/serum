@@ -22,10 +22,10 @@ class _ComponentMeta(ABCMeta):
 class Component(metaclass=_ComponentMeta):
     """
     Base class for all injectable types.
-    Prevents __init__ method:
+    Prevents __init__ method with more than one parameter:
 
     class MyComponent(Component):  # raises: InvalidComponent
-        def __init__(self):
+        def __init__(self, a):
             pass
 
     In addition, Components can be abstract, meaning they
@@ -42,6 +42,21 @@ class Component(metaclass=_ComponentMeta):
 
 
 class Singleton(Component):
+    """
+    Base class for singleton types. References to singletons always refer to
+    the same instance:
+
+    class ExpensiveObject(Singleton):
+        pass
+
+    class Dependent:
+        expensive_instance = inject(ExpensiveObject)
+
+    with Environment():
+        instance1 = Dependent()
+        instance2 = Dependent()
+        assert instance1.expensive_instance == instance2.expensive_instance
+    """
     pass
 
 

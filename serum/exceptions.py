@@ -37,4 +37,8 @@ class AmbiguousDependencies(Exception):
 
 
 class CircularDependency(Exception):
+    """
+    Exception type to signal attempt to inject dependency with circular
+    dependencies
+    """
     pass
