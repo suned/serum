@@ -1,5 +1,5 @@
 from unittest.mock import MagicMock
-
+import gc
 from functools import wraps
 from typing import Type, TypeVar, Set, Union, Dict, Tuple
 
@@ -65,8 +65,16 @@ class Environment:
         self.__mocks: Dict[Type[C], MagicMock] = dict()
         self.__singletons: Dict[Type[C], C] = dict()
         self.__instances: Dict[Tuple[Type[C], object], C] = dict()
+        gc.callbacks.append(self._check_garbage)
         for c in args:
             self.__use(c)
+
+    def _check_garbage(self, phase, info):
+        for component, caller in list(self.__instances.keys()):
+            referrers = gc.get_referrers(caller)
+            # 2 since gc.get_referrers also counts the object itself
+            if len(referrers) == 2:
+                del self.__instances[(component, caller)]
 
     def get_mock(self, component: Type[C]):
         return self.__mocks[component]
@@ -243,6 +251,10 @@ class Environment:
 
     def has_instance(self, component, caller):
         return (component, caller) in self.__instances
+
+    @property
+    def instances(self):
+        return self.__instances
 
     def get_instance(self, component, caller):
         return self.__instances[(component, caller)]

@@ -1,5 +1,9 @@
 import unittest
 
+import gc
+
+import time
+
 from serum import Environment, Component, abstractmethod, Singleton, inject
 from serum.exceptions import InvalidDependency, UnregisteredDependency, \
     NoEnvironment, AmbiguousDependencies, CircularDependency
@@ -28,6 +32,18 @@ class AlternativeComponent(AbstractComponent):
 
 class SomeSingleton(Singleton):
     pass
+
+class Dependent:
+    some_component = inject(SomeComponent)
+
+
+def check_garbage(self, e):
+    def _(phase, info):
+        if phase == 'stop':
+            self.assertEqual(e.instances, {})
+    gc.callbacks.append(_)
+    gc.collect()
+    gc.callbacks.remove(_)
 
 
 class EnvironmentTests(unittest.TestCase):
@@ -172,3 +188,13 @@ class EnvironmentTests(unittest.TestCase):
             self.assertIs(s1, s2)
             s3 = Environment.provide(SomeComponentSingleton, object())
             self.assertIs(s1, s3)
+
+    def test_garbage_collection(self):
+        e = Environment()
+        with e:
+            d = Dependent()
+            _ = d.some_component
+            gc.collect()
+            self.assertTrue(e.has_instance(SomeComponent, d))
+            del d
+            check_garbage(self, e)

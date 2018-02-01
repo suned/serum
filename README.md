@@ -57,6 +57,7 @@ with Environment():
 - [`immutable`](#immutable)
 - [`mock`](#mock)
 - [PEP 484](#pep-484)
+- [Garbage Collection](#garbage-collection)
 
 ## `Component`
 `Component`s are dependencies that can be injected.
@@ -320,6 +321,7 @@ with Environment():
 ## PEP 484
 `serum` is designed for type inference with PEP 484 tools (work in progress). 
 This feature is currently only supported for the PyCharm type checker.
+
 
 ![type inference in PyCharm](https://i.imgur.com/8fvvAQ2.png)
 # Why?
