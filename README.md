@@ -57,7 +57,6 @@ with Environment():
 - [`immutable`](#immutable)
 - [`mock`](#mock)
 - [PEP 484](#pep-484)
-- [Garbage Collection](#garbage-collection)
 
 ## `Component`
 `Component`s are dependencies that can be injected.
