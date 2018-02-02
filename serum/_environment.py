@@ -1,4 +1,4 @@
-from unittest.mock import MagicMock
+from unittest.mock import MagicMock, NonCallableMagicMock
 import gc
 from functools import wraps
 from typing import Type, TypeVar, Set, Union, Dict, Tuple
@@ -41,13 +41,17 @@ class Environment:
         return Environment.__local_storage.current_env
 
     @staticmethod
-    def _mock(component: Type[C]):
+    def mock(component: Type[C]):
         current_env = Environment._current_env()
         if current_env is None:
             raise NoEnvironment(
                 'Can\t register mock outside environment'
             )
-        mock = MagicMock()
+        # not using callable() because component is a class
+        is_callable = '__call__' in vars(component)
+        mock = (MagicMock(spec=component)
+                if is_callable
+                else NonCallableMagicMock(spec=component))
         current_env.__mocks[component] = mock
         return mock
 

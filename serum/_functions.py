@@ -46,7 +46,7 @@ def mock(component: Type[C]) -> MagicMock:
     :return: unittest.mock.MagicMock instance that replaces component in this
              environment
     """
-    return Environment._mock(component)
+    return Environment.mock(component)
 
 
 __all__ = ['inject', 'immutable', 'mock']

@@ -8,8 +8,14 @@ class SomeComponent(Component):
         return 'some value'
 
 
+class SomeCallableComponent(Component):
+    def __call__(self):
+        return 'some value'
+
+
 class Depenedent:
     some_component = inject(SomeComponent)
+    some_callable_component = inject(SomeCallableComponent)
 
 
 class MockTests(unittest.TestCase):
@@ -35,3 +41,15 @@ class MockTests(unittest.TestCase):
     def test_cant_register_mocks_outside_environment(self):
         with self.assertRaises(NoEnvironment):
             mock(SomeComponent)
+
+    def test_mock_is_specced(self):
+        with Environment():
+            some_component_mock = mock(SomeComponent)
+            self.assertIsInstance(some_component_mock, SomeComponent)
+            with self.assertRaises(AttributeError):
+                some_component_mock.bad_method()
+            with self.assertRaises(TypeError):
+                some_component_mock()
+            some_callable_component = mock(SomeCallableComponent)
+            some_callable_component.return_value = 'mocked value'
+            self.assertEqual(some_callable_component(), 'mocked value')
