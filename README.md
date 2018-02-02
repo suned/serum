@@ -286,6 +286,15 @@ with environment:
 
 mock(AbstractLog)  # raises: NoEnvironment: Can't register mock outside environment
 ```
+
+`mock` uses its argument to spec the injected instance of `MagicMock`. This means
+that attempting to call methods that are not defined by the mocked `Component`
+leads to an error
+```python
+with environment:
+    log_mock = mock(AbstractLog)
+    log_mock.no_method()  # raises: AttributeError: Mock object has no attribute 'no method'
+```
 Note that `mock` will only mock requests of the
 exact type supplied as its argument, but not requests of
 more or less specific types
