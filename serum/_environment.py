@@ -137,6 +137,7 @@ class Environment:
         """
         self.__old_current = Environment._current_env()
         Environment._set_current_env(self)
+        return self
 
     def has_singleton_instance(self, singleton_type):
         return singleton_type in self.__singletons

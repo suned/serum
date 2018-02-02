@@ -87,6 +87,7 @@ class InvalidComponent(Component):  # raises: InvalidComponent: __init__ method 
 ```
 To construct `Component`s with dependencies, you should instead use `inject`
 ```python
+
 class ComponentWithDependencies(Component):
     log = inject(Log)
 ```

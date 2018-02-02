@@ -2,8 +2,6 @@ import unittest
 
 import gc
 
-import time
-
 from serum import Environment, Component, abstractmethod, Singleton, inject
 from serum.exceptions import InvalidDependency, UnregisteredDependency, \
     NoEnvironment, AmbiguousDependencies, CircularDependency
@@ -32,6 +30,7 @@ class AlternativeComponent(AbstractComponent):
 
 class SomeSingleton(Singleton):
     pass
+
 
 class Dependent:
     some_component = inject(SomeComponent)
@@ -190,8 +189,7 @@ class EnvironmentTests(unittest.TestCase):
             self.assertIs(s1, s3)
 
     def test_garbage_collection(self):
-        e = Environment()
-        with e:
+        with Environment() as e:
             d = Dependent()
             _ = d.some_component
             gc.collect()
