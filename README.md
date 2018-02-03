@@ -286,6 +286,10 @@ with environment:
 
 mock(AbstractLog)  # raises: NoEnvironment: Can't register mock outside environment
 ```
+```python
+with environment:
+    mocked_db = mock(Database, ['load', 'store'])
+```
 
 `mock` uses its argument to spec the injected instance of `MagicMock`. This means
 that attempting to call methods that are not defined by the mocked `Component`

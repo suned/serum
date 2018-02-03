@@ -1,4 +1,4 @@
-from unittest.mock import MagicMock, NonCallableMagicMock
+from unittest.mock import create_autospec, MagicMock
 import gc
 from functools import wraps
 from typing import Type, TypeVar, Set, Union, Dict, Tuple
@@ -47,11 +47,7 @@ class Environment:
             raise NoEnvironment(
                 'Can\t register mock outside environment'
             )
-        # not using callable() because component is a class
-        is_callable = '__call__' in vars(component)
-        mock = (MagicMock(spec=component)
-                if is_callable
-                else NonCallableMagicMock(spec=component))
+        mock = create_autospec(component, instance=True)
         current_env.__mocks[component] = mock
         return mock
 
