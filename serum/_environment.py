@@ -181,8 +181,6 @@ class Environment:
                 return singleton_instance
 
         def instance(component_type: Type[C]) -> C:
-            if current_env.has_instance(component, caller):
-                return current_env.get_instance(component, caller)
             component_instance = component_type()
             current_env.set_instance(component, caller, component_instance)
             return component_instance
@@ -197,6 +195,8 @@ class Environment:
 
         if current_env.is_mocked(component):
             return current_env.get_mock(component)
+        if current_env.has_instance(component, caller):
+            return current_env.get_instance(component, caller)
         try:
             try:
                 subtype = Environment._find_subtype(component)
