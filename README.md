@@ -299,23 +299,31 @@ exact type supplied as its argument, but not requests of
 more or less specific types
 ```python
 from unittest.mock import MagicMock
+
+
 class Super(Component):
     pass
+
 
 class Sub(Super):
     pass
 
+
 class SubSub(Sub):
     pass
+
 
 class NeedsSuper:
     injected = inject(Super)
 
+
 class NeedsSub:
     injected = inject(Sub)
 
+
 class NeedsSubSub:
     injected = inject(SubSub)
+
 
 with Environment():
     mock(Sub)
