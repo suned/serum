@@ -17,7 +17,7 @@
 from serum import inject, Component, Environment, abstractmethod, mock
 
 
-# Components can be abstract 
+# Components are injectable types. They can be abstract... 
 class AbstractLog(Component):
     @abstractmethod
     def info(self, message: str):
