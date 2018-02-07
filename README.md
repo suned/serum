@@ -56,7 +56,8 @@ with Environment():
     NeedsSimpleLog().log.info('Hello serum!') # outputs: Hello serum!
 
 with Environment(SimpleLog):
-    NeedsLog().log.info('Hello serum!')  # outputs: Hello serum!
+    # Environments provide dependencies
+    assert isinstance(NeedsLog().log, SimpleLog)
 
 # Environments will always provide the most specific 
 # subtype of the requested type
@@ -85,12 +86,15 @@ with Environment(SimpleLog):
 ```python
 from serum import Component, Environment, inject
 
+
 class Log(Component):
     def info(self, message):
         print(message)
 
+
 class NeedsLog:
     log = inject(Log)
+
 
 instance = NeedsLog()
 with Environment():
@@ -103,13 +107,13 @@ class ValidComponent(Component):  # OK!
     def __init__(self):
         self.value = self.some_dependency.method()
 
+
 class InvalidComponent(Component):  # raises: InvalidComponent: __init__ method in Components can only take 1 parameter
     def __init__(self, a):
         self.a = a
 ```
 To construct `Component`s with dependencies, you should instead use `inject`
 ```python
-
 class ComponentWithDependencies(Component):
     log = inject(Log)
 ```
@@ -122,22 +126,28 @@ an error.
 class AbstractA(Component):
     pass
 
+
 class AbstractB(Component):
     pass
+
 
 class A(AbstractA):
     b = inject(AbstractB)
 
+
     def __init__(self):
         self.b
+
 
 class B(AbstractB):
     a = inject(AbstractA)
     def __init__(self):
         self.a
 
+
 class Dependent:
     a = inject(AbstractA)
+
 
 with Environment(A, B):
     Dependent().a  # raises: CircularDependency: Circular dependency encountered while injecting <class 'AbstractA'> in <B object at 0x1061e3898>
@@ -150,21 +160,26 @@ in the standard library.
 ```python
 from serum import abstractmethod
 
+
 class AbstractLog(Component):
     @abstractmethod
     def info(self, message):
         pass
         
+        
 class NeedsLog:
     log = inject(AbstractLog)
+
 
 instance = NeedsLog()
 with Environment():
     instance.log  # raises UnregisteredDependency: No concrete implementation of <class 'AbstractLog'> found
 
+
 class ConcreteLog(AbstractLog):
     def info(self, message):
         print(message)
+
 
 with Environment(ConcreteLog):
     instance.log  # Ok!
@@ -209,10 +224,11 @@ def f():
 ```
 You can only provide subtypes of `Component` with `Environment`.
 ```python
-class C:
+class NotAComponent:
     pass
 
-Environment(C)  # raises: InvalidDependency: Attempt to register type that is not a Component: <class 'C'> 
+
+Environment(NotAComponent)  # raises: InvalidDependency: Attempt to register type that is not a Component: <class 'C'> 
 ```
 `Environment`s are local to each thread. This means that when using multi-threading
 each thread must define its own environment.
@@ -273,11 +289,14 @@ To always inject the same instance of a component, inherit from `Singleton`.
 ```python
 from serum import Singleton
 
+
 class ExpensiveObject(Singleton):
     pass
 
+
 class NeedsExpensiveObject:
     expensive_instance = inject(ExpensiveObject)
+
 
 with Environment():
     instance1 = NeedsExpensiveObject()
@@ -291,8 +310,10 @@ that also supports type inference with PEP 484 tools.
 ```python
 from serum import immutable
 
+
 class Immutable:
     value = immutable(1)
+
 
 i = Immutable()
 i.value = 2  # raises AttributeError: Can't set property
@@ -315,8 +336,10 @@ class Dependency(Component):
     def method(self):
         return 'some value' 
 
+
 class Dependent:
     dependency = inject(Dependency)
+
 
 environment = Environment()
 with environment:
