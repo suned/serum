@@ -14,46 +14,68 @@
 ```
 # Quickstart
 ```python
-from serum import inject, Component, Environment, abstractmethod
+from serum import inject, Component, Environment, abstractmethod, mock
 
-class Log(Component):
+
+# Components can be abstract 
+class AbstractLog(Component):
     @abstractmethod
     def info(self, message: str):
         pass
 
-class SimpleLog(Log):
+
+# ...And concrete
+class SimpleLog(AbstractLog):
     def info(self, message: str):
         print(message)
 
-class StubLog(Log):
+
+class StubLog(SimpleLog):
     def info(self, message: str):
         pass
 
-class NeedsLog:
-    log = inject(Log)
 
+class NeedsLog:
+    # Components can be injected
+    log = inject(AbstractLog)
+
+    
+class NeedsSimpleLog:
+    log = inject(SimpleLog)
+
+
+# Components can't be injected outside an environment
 NeedsLog().log.info('Hello serum!')  # raises: NoEnvironment
 
 with Environment():
+    # Abstract components can only be injected in environments
+    # that provide concrete implementations
     NeedsLog().log.info('Hello serum!')  # raises: UnregisteredDependency
+    # Concrete components can be injected even in an
+    # empty environment
+    NeedsSimpleLog().log.info('Hello serum!') # outputs: Hello serum!
 
 with Environment(SimpleLog):
     NeedsLog().log.info('Hello serum!')  # outputs: Hello serum!
 
-with Environment(StubLog):
+# Environments will always provide the most specific 
+# subtype of the requested type
+with Environment(SimpleLog, StubLog):
     NeedsLog().log.info('Hello serum!')  # doesn't output anything
+    NeedsSimpleLog().log.info('Hello serum!')  # doesn't output anything
 
-class NeedsSimpleLog:
-    log = inject(SimpleLog)
-
-with Environment():
-    NeedsSimpleLog().log.info('Hello serum!')  # outputs: Hello serum!
+with Environment(SimpleLog):
+    # mock is a helper method for mocking components
+    mock_log = mock(AbstractLog)
+    mock_log.info.return_value = 'Mocked!'
+    assert NeedsLog().log is mock_log
+    assert NeedsLog().log.info('') == 'Mocked!'
 ```
 # Documentation
 - [`Component`](#component)
-- [`Singleton`](#singleton)
 - [`Environment`](#environment)
 - [`inject`](#inject)
+- [`Singleton`](#singleton)
 - [`immutable`](#immutable)
 - [`mock`](#mock)
 - [PEP 484](#pep-484)
@@ -92,7 +114,7 @@ class ComponentWithDependencies(Component):
     log = inject(Log)
 ```
 Note that if you access injected members in the constructor of any type,
-that type can only be instantiated inside an environment.
+that type can only be instantiated inside an environment (see [`Environment`](#environment)).
 
 Also note that circular dependencies preventing component instantiation leads to
 an error.
@@ -120,10 +142,10 @@ class Dependent:
 with Environment(A, B):
     Dependent().a  # raises: CircularDependency: Circular dependency encountered while injecting <class 'AbstractA'> in <B object at 0x1061e3898>
 ```
-`Component`s can be abstract. Abstract `Component`s can't be injected in an
-`Environment` that doesn't provide a concrete implementation. For convenience you can import
+`Component`s can be abstract. Abstract `Component`s can only be injected in an
+`Environment` that provides a concrete implementation. For convenience you can import
 `abstractmethod`, `abstractclassmethod` or `abstractclassmethod` from `serum`,
-but they are refer to the decorators from the `abc` module 
+but they simply refer to the decorators from the `abc` module 
 in the standard library.
 ```python
 from serum import abstractmethod
@@ -148,51 +170,41 @@ with Environment(ConcreteLog):
     instance.log  # Ok!
  
 ```
-## `Singleton`
-If you want to always inject the same instance of an object, inherit from `Singleton`.
-```python
-from serum import Singleton
-
-class ExpensiveObject(Singleton):
-    pass
-
-class NeedsExpensiveObject:
-    expensive_instance = inject(ExpensiveObject)
-
-with Environment():
-    instance1 = NeedsExpensiveObject()
-    instance2 = NeedsExpensiveObject()
-    assert instance1.expensive_instance is instance2.expensive_instance
-```
 ## `Environment`
 `Environment`s provide implementations of `Components`. An `Environment` will always provide the most
 specific subtype of the requested type (in Method Resolution Order).
 ```python
-class MockLog(Log):
-    def info(self, message):
-        pass
+class Super(component):
+    pass
 
-with Environment(MockLog):
-    assert isinstance(instance.log, MockLog)
+
+class Sub(Super):
+    pass
+
+
+class NeedsSuper:
+    instance = inject(Super)
+
+
+with Environment(Sub):
+    assert isinstance(NeedsSuper().instance, Sub)
 ```
 It is an error to inject a type in an `Environment` that provides two or more equally specific subtypes of that type:
 ```python
-class FileLog(Log):
-    _file = 'log.txt'
-    def info(self, message):
-        with open(self._file, 'w') as f:
-            f.write(message)
+class AlsoSub(Super):
+    pass
 
-with Environment(MockLog, FileLog):
-    instance.log  # raises: AmbiguousDependencies: Attempt to inject type <class 'Log'> with equally specific provided subtypes: <class 'MockLog'>, <class 'FileLog'>
+
+with Environment(Sub, AlsoSub):
+    NeedsSuper().instance  # raises: AmbiguousDependencies: Attempt to inject type <class 'Log'> with equally specific provided subtypes: <class 'MockLog'>, <class 'FileLog'>
 ```
 `Environment`s can also be used as decorators:
 ```python
-test_environment = Environment(MockLog)
+test_environment = Environment(Sub)
 
 @test_environment
 def f():
-    assert isinstance(instance.log, MockLog)
+    assert isinstance(NeedsSuper().instance, Sub)
 
 ```
 You can only provide subtypes of `Component` with `Environment`.
@@ -208,13 +220,13 @@ each thread must define its own environment.
 import threading
 
 def worker_without_environment():
-    NeedsLog().log  # raises NoEnvironment: Can't inject components outside an environment
+    NeedsSuper().instance  # raises NoEnvironment: Can't inject components outside an environment
 
 def worker_with_environment():
-    with Environment(ConcreteLog):
-        NeedsLog().log  # OK!
+    with Environment(Sub):
+        NeedsSuper().instance  # OK!
 
-with Environment(ConcreteLog):
+with Environment():
     threading.Thread(target=worker_without_environment()).start()
     threading.Thread(target=worker_with_environment()).start()
 ```
@@ -222,17 +234,29 @@ with Environment(ConcreteLog):
 Just as you can only provide subtypes of `Component` with `Environment`, 
 you can only inject subtypes of `Component`.
 ```python
+class NotAComponent:
+    pass
+    
+
 class InvalidDependent:
-    dependency = inject(C)  # raises: InvalidDependency: Attempt to inject type that is not a Component: <class 'C'>
+    dependency = inject(NotAComponent)  # raises: InvalidDependency: Attempt to inject type that is not a Component: <class 'C'>
 ```
 Injected `Component`s can't be accessed outside an `Environment` context:
 ```python
-instance.log  # raises NoEnvironment: Can't inject components outside an environment 
+class Dependency(Component):
+    pass
+
+
+class Dependent:
+    dependency = inject(Dependency)
+
+
+Dependent().dependency  # raises NoEnvironment: Can't inject components outside an environment 
 ```
 Injected `Component`s are immutable
 ```python
 with Environment():
-    instance.log = 'mutate this'  # raises AttributeError: Can't set property
+    Dependent().dependency = 'mutate this'  # raises AttributeError: Can't set property
 ```
 An injected member of an instance will always refer to the same component 
 instance. Injected members of different instances will refer to different
@@ -244,15 +268,30 @@ with Environment():
     instance2 = NeedsLog()
     assert instance2.log is not instance1.log
 ``` 
+## `Singleton`
+To always inject the same instance of a component, inherit from `Singleton`.
+```python
+from serum import Singleton
+
+class ExpensiveObject(Singleton):
+    pass
+
+class NeedsExpensiveObject:
+    expensive_instance = inject(ExpensiveObject)
+
+with Environment():
+    instance1 = NeedsExpensiveObject()
+    instance2 = NeedsExpensiveObject()
+    assert instance1.expensive_instance is instance2.expensive_instance
+```
 ## `immutable`
-You can define mutable static fields in a `Component`. If you want to define 
-immutable static fields (constants) in components (or any other classes), 
+If you want to define immutable members (constants) in components (or any other classes), 
 `serum` provides the `immutable` utility
 that also supports type inference with PEP 484 tools. 
 ```python
 from serum import immutable
 
-class Immutable(Component):
+class Immutable:
     value = immutable(1)
 
 i = Immutable()
@@ -260,7 +299,7 @@ i.value = 2  # raises AttributeError: Can't set property
 ```
 This is just convenience for:
 ```python
-class Immutable(Component):
+class Immutable:
     value = property(fget=lambda _: 1)
 ```
 ## `mock`
@@ -271,28 +310,36 @@ when the environment context is closed.
 ```python
 from serum import mock
 
-environment = Environment(ConcreteLog)
+
+class Dependency(Component):
+    def method(self):
+        return 'some value' 
+
+class Dependent:
+    dependency = inject(Dependency)
+
+environment = Environment()
 with environment:
-    log_mock = mock(AbstractLog)
-    log_mock.method.return_value = 'some value'
-    instance = NeedsLog()
-    assert instance.log is log_mock
-    assert instance.log.method() == 'some value'
+    mock_dependency = mock(Dependency)
+    mock_dependency.method.return_value = 'some mocked value'
+    instance = Dependent()
+    assert instance.dependency is mock_dependency
+    assert instance.dependency.method() == 'some mocked value'
 
 with environment:
-    instance = NeedsLog()
-    assert instance.log is not log_mock
-    assert isinstance(instance.log, ConcreteLog)
+    instance = Dependent()
+    assert instance.dependency is not mock_dependency
+    assert isinstance(instance.dependency, Dependency)
 
-mock(AbstractLog)  # raises: NoEnvironment: Can't register mock outside environment
+mock(Dependency)  # raises: NoEnvironment: Can't register mock outside environment
 ```
 `mock` uses its argument to spec the injected instance of `MagicMock`. This means
 that attempting to call methods that are not defined by the mocked `Component`
 leads to an error
 ```python
 with environment:
-    log_mock = mock(AbstractLog)
-    log_mock.no_method()  # raises: AttributeError: Mock object has no attribute 'no method'
+    mock_dependency = mock(Dependency)
+    mock_dependency.no_method()  # raises: AttributeError: Mock object has no attribute 'no method'
 ```
 Note that `mock` will only mock requests of the
 exact type supplied as its argument, but not requests of
