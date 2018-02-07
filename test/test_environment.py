@@ -12,6 +12,10 @@ class SomeComponent(Component):
     pass
 
 
+class SomeOtherComponent(Component):
+    pass
+
+
 class AbstractComponent(Component):
     @abstractmethod
     def m(self):
@@ -151,6 +155,21 @@ class EnvironmentTests(unittest.TestCase):
             s1 = Environment.provide(SomeSingleton, self)
             s2 = Environment.provide(SomeSingleton, object())
             self.assertIs(s1, s2)
+
+    def test_instances_are_cached(self):
+        with Environment():
+            s1 = Environment.provide(SomeComponent, self)
+            s2 = Environment.provide(SomeComponent, self)
+            self.assertIs(s1, s2)
+
+    def test_more_than_one_instance_in_cache(self):
+        with Environment():
+            s1 = Environment.provide(SomeComponent, self)
+            s2 = Environment.provide(SomeOtherComponent, self)
+            s3 = Environment.provide(SomeComponent, self)
+            s4 = Environment.provide(SomeOtherComponent, self)
+            self.assertIs(s1, s3)
+            self.assertIs(s2, s4)
 
     def test_circular_dependency(self):
         class AbstractA(Component):
