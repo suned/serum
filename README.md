@@ -55,8 +55,8 @@ with Environment():
     # empty environment
     NeedsSimpleLog().log.info('Hello serum!') # outputs: Hello serum!
 
+# Environments provide dependencies
 with Environment(SimpleLog):
-    # Environments provide dependencies
     assert isinstance(NeedsLog().log, SimpleLog)
 
 # Environments will always provide the most specific 
