@@ -183,7 +183,6 @@ class ConcreteLog(AbstractLog):
 
 with Environment(ConcreteLog):
     instance.log  # Ok!
- 
 ```
 ## `Environment`
 `Environment`s provide implementations of `Components`. An `Environment` will always provide the most
