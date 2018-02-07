@@ -1,7 +1,7 @@
 from unittest.mock import create_autospec, MagicMock
-import gc
 from functools import wraps
-from typing import Type, TypeVar, Set, Union, Dict, Tuple
+from typing import Type, TypeVar, Set, Union, Dict
+from weakref import WeakKeyDictionary
 
 from .exceptions import (
     InvalidDependency,
@@ -64,17 +64,9 @@ class Environment:
         self.__old_current: Environment = None
         self.__mocks: Dict[Type[C], MagicMock] = dict()
         self.__singletons: Dict[Type[C], C] = dict()
-        self.__instances: Dict[Tuple[Type[C], object], C] = dict()
-        gc.callbacks.append(self._check_garbage)
+        self.__instances: Dict[object, Dict[Type[C], C]] = WeakKeyDictionary()
         for c in args:
             self.__use(c)
-
-    def _check_garbage(self, phase, info):
-        for component, caller in list(self.__instances.keys()):
-            referrers = gc.get_referrers(caller)
-            # 2 since gc.get_referrers also counts the object itself
-            if len(referrers) == 2:
-                del self.__instances[(component, caller)]
 
     def get_mock(self, component: Type[C]):
         return self.__mocks[component]
@@ -251,17 +243,19 @@ class Environment:
         self.__singletons[singleton_type] = instance
 
     def has_instance(self, component, caller):
-        return (component, caller) in self.__instances
+        return caller in self.__instances and component in self.__instances[caller]
 
     @property
     def instances(self):
         return self.__instances
 
     def get_instance(self, component, caller):
-        return self.__instances[(component, caller)]
+        return self.__instances[caller][component]
 
     def set_instance(self, component, caller, component_instance):
-        self.__instances[(component, caller)] = component_instance
+        if caller not in self.__instances:
+            self.__instances[caller] = {}
+        self.__instances[caller][component] = component_instance
 
 
 __all__ = ['Environment']
