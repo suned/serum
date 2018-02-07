@@ -17,16 +17,13 @@ jobs:
             . venv/bin/activate
             pip install codecov
       - run:
-          name: run tests
+          name: run tests and report metrics
           command: |
             . venv/bin/activate
             coverage run --source serum --branch  -m unittest
             coverage report --fail-under 100
-      - run:
-          name: report metrics
-          command: |
-            . venv/bin/activate
             codecov
+
 
   deploy:
     docker:
