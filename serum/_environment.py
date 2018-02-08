@@ -205,7 +205,7 @@ class Environment:
                 )
             current_env.pending.add(subtype)
             subtype_instance = instantiate(subtype)
-            current_env.pending = set()
+            current_env.pending.remove(subtype)
             return subtype_instance
         except UnregisteredDependency:
             try:
