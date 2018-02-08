@@ -61,6 +61,7 @@ class Environment:
         :param args: Components to provide in this environment
         """
         self.__registry: Set[Type[C]] = set()
+        self.__pending: Set[Type[C]] = set()
         self.__old_current: Environment = None
         self.__mocks: Dict[Type[C], MagicMock] = dict()
         self.__singletons: Dict[Type[C], C] = dict()
@@ -68,13 +69,21 @@ class Environment:
         for c in args:
             self.__use(c)
 
-    def get_mock(self, component: Type[C]):
+    @property
+    def registry(self) -> Set[Type[C]]:
+        return self.__registry
+
+    @property
+    def pending(self) -> Set[Type[C]]:
+        return self.__pending
+
+    def get_mock(self, component: Type[C]) -> MagicMock:
         return self.__mocks[component]
 
-    def is_mocked(self, component: Type[C]):
+    def is_mocked(self, component: Type[C]) -> bool:
         return component in self.__mocks
 
-    def __use(self, component: Type[C]):
+    def __use(self, component: Type[C]) -> 'Environment':
         if not issubclass(component, Component):
             raise InvalidDependency(
                 'Attempt to register type that is not a Component: {}'.format(
@@ -84,7 +93,7 @@ class Environment:
         self.__registry.add(component)
         return self
 
-    def __contains__(self, component: Type[C]):
+    def __contains__(self, component: Type[C]) -> bool:
         """
         Test if a Component is registered in this environment
         :param component: Component to test
@@ -190,25 +199,27 @@ class Environment:
         if current_env.has_instance(component, caller):
             return current_env.get_instance(component, caller)
         try:
-            try:
-                subtype = Environment._find_subtype(component)
-                return instantiate(subtype)
-            except UnregisteredDependency:
-                try:
-                    return instantiate(component)
-                except TypeError:
-                    raise UnregisteredDependency(
-                        'No concrete implementation of {} found'.format(
-                            str(component)
-                        )
+            subtype = Environment._find_subtype(component)
+            if subtype in current_env.pending:
+                raise CircularDependency(
+                    'Circular dependency encountered while injecting {} in {}'.format(
+                        str(component),
+                        str(caller)
                     )
-        except RecursionError:
-            raise CircularDependency(
-                'Circular dependency encountered while injecting {} in {}'.format(
-                    str(component),
-                    str(caller)
                 )
-            )
+            current_env.pending.add(subtype)
+            subtype_instance = instantiate(subtype)
+            current_env.pending = set()
+            return subtype_instance
+        except UnregisteredDependency:
+            try:
+                return instantiate(component)
+            except TypeError:
+                raise UnregisteredDependency(
+                    'No concrete implementation of {} found'.format(
+                        str(component)
+                    )
+                )
 
     @staticmethod
     def _find_subtype(component: Type[C]) -> Type[C]:
@@ -256,6 +267,10 @@ class Environment:
         if caller not in self.__instances:
             self.__instances[caller] = {}
         self.__instances[caller][component] = component_instance
+
+    @pending.setter
+    def pending(self, value):
+        self.__pending = value
 
 
 __all__ = ['Environment']
