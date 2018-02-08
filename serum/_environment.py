@@ -264,9 +264,5 @@ class Environment:
             self.__instances[caller] = {}
         self.__instances[caller][component] = component_instance
 
-    @pending.setter
-    def pending(self, value):
-        self.__pending = value
-
 
 __all__ = ['Environment']
