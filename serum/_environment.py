@@ -70,10 +70,6 @@ class Environment:
             self.__use(c)
 
     @property
-    def registry(self) -> Set[Type[C]]:
-        return self.__registry
-
-    @property
     def pending(self) -> Set[Type[C]]:
         return self.__pending
 
