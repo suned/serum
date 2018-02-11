@@ -214,9 +214,9 @@ with Environment(Sub, AlsoSub):
 ```
 `Environment`s can also be used as decorators:
 ```python
-test_environment = Environment(Sub)
+environment = Environment(Sub)
 
-@test_environment
+@environment
 def f():
     assert isinstance(NeedsSuper().instance, Sub)
 
