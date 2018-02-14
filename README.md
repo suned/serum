@@ -288,7 +288,8 @@ def second_worker():
 threading.Thread(target=first_worker()).start()
 threading.Thread(target=second_worker()).start()
 ```
-To share state between injected `Component`s in different threads, use mutable static fields and locking (yuck) 
+To share state between injected `Component`s in different threads, use mutable 
+class/module variables and locking (yuck) 
 or [`queue`](https://docs.python.org/3.6/library/queue.html).
 ## `inject`
 Just as you can only provide subtypes of `Component` with `Environment`, 
