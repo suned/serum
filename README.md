@@ -261,29 +261,18 @@ This means you can't share state between threads through injected components.
 ```python
 from queue import Queue
 
-c = threading.Condition()
 q = Queue()
 needs_super = NeedsSuper()
 environment = Environment()
 
 def first_worker():
-    with c:
-        c.wait()
     instance = q.get()
     with environment:
-        q.put(needs_super.instance)
-        with c:
-            c.notify()
         assert instance is not needs_super.instance
 
 def second_worker():
     with environment:
         q.put(needs_super.instance)
-        with c:
-            c.notify()
-            c.wait()
-        instance = q.get()
-        assert instance is not needs_super.instance
 
 threading.Thread(target=first_worker()).start()
 threading.Thread(target=second_worker()).start()
