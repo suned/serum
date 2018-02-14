@@ -229,6 +229,17 @@ class NotAComponent:
 
 Environment(NotAComponent)  # raises: InvalidDependency: Attempt to register type that is not a Component: <class 'C'> 
 ```
+`Environment`s define the scope of the injected components. This means that injected
+`Component` and `Singleton` instances are destroyed when the environment context closes.
+```python
+needs_super = NeedsSuper()
+
+with Environment():
+    instance = needs_super.instance
+
+with Environment():
+    assert instance is not needs_super.instance
+```
 `Environment`s are local to each thread. This means that when using multi-threading
 each thread must define its own environment.
 ```python
@@ -245,6 +256,40 @@ with Environment():
     threading.Thread(target=worker_without_environment()).start()
     threading.Thread(target=worker_with_environment()).start()
 ```
+Moreover, injected `Component` and `Singleton` instances are local to each thread.
+This means you can't share state between threads through injected components.
+```python
+from queue import Queue
+
+c = threading.Condition()
+q = Queue()
+needs_super = NeedsSuper()
+environment = Environment()
+
+def first_worker():
+    with c:
+        c.wait()
+    instance = q.get()
+    with environment:
+        q.put(needs_super.instance)
+        with c:
+            c.notify()
+        assert instance is not needs_super.instance
+
+def second_worker():
+    with environment:
+        q.put(needs_super.instance)
+        with c:
+            c.notify()
+            c.wait()
+        instance = q.get()
+        assert instance is not needs_super.instance
+
+threading.Thread(target=first_worker()).start()
+threading.Thread(target=second_worker()).start()
+```
+To share state between injected `Component`s in different threads, use mutable static fields and locking (yuck) 
+or [`queue`](https://docs.python.org/3.6/library/queue.html).
 ## `inject`
 Just as you can only provide subtypes of `Component` with `Environment`, 
 you can only inject subtypes of `Component`.

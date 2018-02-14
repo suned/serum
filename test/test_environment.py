@@ -2,6 +2,8 @@ import unittest
 
 import gc
 
+from queue import Queue
+
 from serum import Environment, Component, abstractmethod, Singleton, inject
 from serum.exceptions import InvalidDependency, UnregisteredDependency, \
     NoEnvironment, AmbiguousDependencies, CircularDependency
@@ -37,6 +39,7 @@ class SomeSingleton(Singleton):
 
 
 class Dependent:
+    some_singleton = inject(SomeSingleton)
     some_component = inject(SomeComponent)
 
 
@@ -125,11 +128,13 @@ class EnvironmentTests(unittest.TestCase):
 
     def test_nested_environments(self):
         with Environment(ConcreteComponent):
-            c = Environment.provide(AbstractComponent, self)
-            self.assertIsInstance(c, ConcreteComponent)
+            c1 = Environment.provide(AbstractComponent, self)
+            self.assertIsInstance(c1, ConcreteComponent)
             with Environment(AlternativeComponent):
-                c = Environment.provide(AbstractComponent, self)
-                self.assertIsInstance(c, AlternativeComponent)
+                c2 = Environment.provide(AbstractComponent, self)
+                self.assertIsInstance(c2, AlternativeComponent)
+            c3 = Environment.provide(AbstractComponent, self)
+            self.assertIs(c1, c3)
 
     def test_context_manager(self):
         e = Environment()
@@ -215,3 +220,58 @@ class EnvironmentTests(unittest.TestCase):
             self.assertTrue(e.has_instance(SomeComponent, d))
             del d
             check_garbage(self, e)
+
+    def test_scope(self):
+        environment = Environment()
+        d = Dependent()
+
+        with environment:
+            sc1 = d.some_component
+            ss1 = d.some_singleton
+        with environment:
+            sc2 = d.some_component
+            ss2 = d.some_singleton
+        self.assertIsNot(sc1, sc2)
+        self.assertIsNot(ss1, ss2)
+
+    def test_scope_multi_threaded(self):
+        environment = Environment()
+        d = Dependent()
+        q = Queue()
+        c = threading.Condition()
+
+        with environment:
+            some_component1 = d.some_component
+            singleton1 = d.some_singleton
+
+        def t1():
+            with c:
+                c.wait()
+            some_component2 = q.get()
+            singleton2 = q.get()
+            with environment:
+                q.put(d.some_component)
+                q.put(d.some_singleton)
+                with c:
+                    c.notify()
+                self.assertIsNot(d.some_component, some_component2)
+                self.assertIsNot(d.some_singleton, singleton2)
+                self.assertIsNot(d.some_component, some_component1)
+                self.assertIsNot(d.some_singleton, singleton1)
+
+        def t2():
+            with environment:
+                q.put(d.some_component)
+                q.put(d.some_singleton)
+                with c:
+                    c.notify()
+                    c.wait()
+                some_component3 = q.get()
+                singleton3 = q.get()
+                self.assertIsNot(d.some_component, some_component3)
+                self.assertIsNot(d.some_singleton, singleton3)
+                self.assertIsNot(d.some_component, some_component1)
+                self.assertIsNot(d.some_singleton, singleton1)
+
+        threading.Thread(target=t1).start()
+        threading.Thread(target=t2).start()

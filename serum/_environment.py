@@ -22,6 +22,15 @@ class _LocalStorage(threading.local):
         self.current_env: Environment = None
 
 
+class _EnvironmentState(threading.local):
+    def __init__(self):
+        self.pending: Set[Type[C]] = set()
+        self.old_current: Environment = None
+        self.mocks: Dict[Type[C], MagicMock] = dict()
+        self.singletons: Dict[Type[C], C] = dict()
+        self.instances: Dict[object, Dict[Type[C], C]] = WeakKeyDictionary()
+
+
 class Environment:
     """
     Context manager/decorator for providing instances of Component:
@@ -48,7 +57,7 @@ class Environment:
                 'Can\t register mock outside environment'
             )
         mock = create_autospec(component, instance=True)
-        current_env.__mocks[component] = mock
+        current_env.__state.mocks[component] = mock
         return mock
 
     @staticmethod
@@ -61,23 +70,19 @@ class Environment:
         :param args: Components to provide in this environment
         """
         self.__registry: Set[Type[C]] = set()
-        self.__pending: Set[Type[C]] = set()
-        self.__old_current: Environment = None
-        self.__mocks: Dict[Type[C], MagicMock] = dict()
-        self.__singletons: Dict[Type[C], C] = dict()
-        self.__instances: Dict[object, Dict[Type[C], C]] = WeakKeyDictionary()
+        self.__state: _EnvironmentState = _EnvironmentState()
         for c in args:
             self.__use(c)
 
     @property
     def pending(self) -> Set[Type[C]]:
-        return self.__pending
+        return self.__state.pending
 
     def get_mock(self, component: Type[C]) -> MagicMock:
-        return self.__mocks[component]
+        return self.__state.mocks[component]
 
     def is_mocked(self, component: Type[C]) -> bool:
-        return component in self.__mocks
+        return component in self.__state.mocks
 
     def __use(self, component: Type[C]) -> 'Environment':
         if not issubclass(component, Component):
@@ -132,12 +137,13 @@ class Environment:
         Register this environment as the current environment in this thread
         :return:
         """
+        self.__state.__init__()
         self.__old_current = Environment._current_env()
         Environment._set_current_env(self)
         return self
 
     def has_singleton_instance(self, singleton_type):
-        return singleton_type in self.__singletons
+        return singleton_type in self.__state.singletons
 
     def __exit__(self, exc_type, exc_val, exc_tb):
         """
@@ -147,7 +153,7 @@ class Environment:
         :param exc_tb:
         :return:
         """
-        self.__mocks = dict()
+        self.__state.__init__()
         Environment._set_current_env(self.__old_current)
         self.__old_current = None
 
@@ -244,25 +250,25 @@ class Environment:
         return max(subtypes, key=mro_distance)
 
     def get_singleton(self, singleton_type):
-        return self.__singletons[singleton_type]
+        return self.__state.singletons[singleton_type]
 
     def add_singleton(self, singleton_type, instance):
-        self.__singletons[singleton_type] = instance
+        self.__state.singletons[singleton_type] = instance
 
     def has_instance(self, component, caller):
-        return caller in self.__instances and component in self.__instances[caller]
+        return caller in self.__state.instances and component in self.__state.instances[caller]
 
     @property
     def instances(self):
-        return self.__instances
+        return self.__state.instances
 
     def get_instance(self, component, caller):
-        return self.__instances[caller][component]
+        return self.__state.instances[caller][component]
 
     def set_instance(self, component, caller, component_instance):
-        if caller not in self.__instances:
-            self.__instances[caller] = {}
-        self.__instances[caller][component] = component_instance
+        if caller not in self.__state.instances:
+            self.__state.instances[caller] = {}
+        self.__state.instances[caller][component] = component_instance
 
 
 __all__ = ['Environment']
