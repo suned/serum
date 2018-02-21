@@ -80,6 +80,7 @@ with Environment(SimpleLog):
 - [`Singleton`](#singleton)
 - [`immutable`](#immutable)
 - [`mock`](#mock)
+- [`match`](#match)
 - [PEP 484](#pep-484)
 
 ## `Component`
@@ -536,6 +537,52 @@ with Environment():
     assert isinstance(needs_super.injected, Super)
     assert isinstance(needs_sub.injected, MagicMock)
     assert isinstance(needs_subsub.injected, SubSub)
+```
+## `match`
+`match` is small utility function for matching `Environment` instances
+with values of an environment variable.
+```python
+# my_script.py
+
+from serum import match, Component, abstractmethod, Environment, create
+
+class Dependency(Component):
+    @abstractmethod
+    def method(self):
+        pass
+
+
+class ProductionDependency(Dependency):
+    def method(self):
+        print('Production!')
+
+
+class TestDependency(Dependency):
+    def method(self):
+        print('Test!')
+
+
+environment = match(
+    environment_variable='MY_SCRIPT_ENV', 
+    default=Environment(ProductionDependency),
+    PROD=Environment(ProductionDependency),
+    TEST=Environment(TestDependency)
+)
+with environment:
+    create(Dependency).method()
+      
+```
+```
+> python my_script.py
+Production!
+```
+```
+> MY_SCRIPT_ENV=PROD python my_script.py
+Production!
+```
+```
+> MY_SCRIPT_ENV=TEST python my_script.py
+Test!
 ```
 ## PEP 484
 `serum` is designed for type inference with PEP 484 tools (work in progress). 
