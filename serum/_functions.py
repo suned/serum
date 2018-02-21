@@ -1,7 +1,7 @@
 from typing import TypeVar, Type, cast
 from unittest.mock import MagicMock
 
-from .exceptions import InvalidDependency, CircularDependency
+from .exceptions import InvalidDependency
 from ._component import Component
 from ._environment import Environment
 
@@ -22,10 +22,17 @@ def inject(component: Type[C]) -> C:
             )
         )
 
-    def get_instance(caller):
+    def get_instance(caller) -> C:
         return Environment.provide(component, caller)
 
     return cast(C, property(fget=get_instance))
+
+
+def create(component: Type[C]) -> C:
+    class Key:
+        pass
+
+    return cast(C, Environment.provide(component, Key()))
 
 
 def immutable(value: T) -> T:
@@ -49,4 +56,4 @@ def mock(component: Type[C]) -> MagicMock:
     return Environment.mock(component)
 
 
-__all__ = ['inject', 'immutable', 'mock']
+__all__ = ['inject', 'immutable', 'mock', 'create']

@@ -38,6 +38,10 @@ class SomeSingleton(Singleton):
     pass
 
 
+class Key:
+    pass
+
+
 class Dependent:
     some_singleton = inject(SomeSingleton)
     some_component = inject(SomeComponent)
@@ -127,14 +131,19 @@ class EnvironmentTests(unittest.TestCase):
             threading.Thread(target=test).start()
 
     def test_nested_environments(self):
+        key = Key()
         with Environment(ConcreteComponent):
             c1 = Environment.provide(AbstractComponent, self)
             self.assertIsInstance(c1, ConcreteComponent)
             with Environment(AlternativeComponent):
                 c2 = Environment.provide(AbstractComponent, self)
-                self.assertIsInstance(c2, AlternativeComponent)
-            c3 = Environment.provide(AbstractComponent, self)
-            self.assertIs(c1, c3)
+                c3 = Environment.provide(AbstractComponent, key)
+                self.assertIs(c1, c2)
+                self.assertIsInstance(c3, AlternativeComponent)
+            c4 = Environment.provide(AbstractComponent, key)
+            c5 = Environment.provide(AbstractComponent, self)
+            self.assertIsNot(c3, c4)
+            self.assertIs(c1, c5)
 
     def test_context_manager(self):
         e = Environment()

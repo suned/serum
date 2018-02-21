@@ -7,7 +7,7 @@
 # Description
 `serum` is a fresh take on Dependency Injection in Python 3.
 
-`serum` is pure python, has no dependencies, and is less than 300 lines of code.
+`serum` is pure python and has no dependencies.
 # Installation
 ```
 > pip install serum
@@ -76,6 +76,7 @@ with Environment(SimpleLog):
 - [`Component`](#component)
 - [`Environment`](#environment)
 - [`inject`](#inject)
+- [`create`](#create)
 - [`Singleton`](#singleton)
 - [`immutable`](#immutable)
 - [`mock`](#mock)
@@ -112,10 +113,14 @@ class InvalidComponent(Component):  # raises: InvalidComponent: __init__ method 
     def __init__(self, a):
         self.a = a
 ```
-To construct `Component`s with dependencies, you should instead use `inject`
+To construct `Component`s with dependencies, you should instead use `inject` or `create`.
 ```python
 class ComponentWithDependencies(Component):
     log = inject(Log)
+
+class ComponentWithDependencies(Component):
+    def __init_(self):
+        self.log = create(Log)
 ```
 Note that if you access injected members in the constructor of any type,
 that type can only be instantiated inside an environment (see [`Environment`](#environment)).
@@ -185,7 +190,7 @@ with Environment(ConcreteLog):
     instance.log  # Ok!
 ```
 ## `Environment`
-`Environment`s provide implementations of `Components`. An `Environment` will always provide the most
+`Environment`s provide implementations of `Component`s. An `Environment` will always provide the most
 specific subtype of the requested type (in Method Resolution Order).
 ```python
 class Super(component):
@@ -281,6 +286,13 @@ To share state between injected `Component`s in different threads, use mutable
 class/module variables and locking (yuck) 
 or [`queue`](https://docs.python.org/3.6/library/queue.html).
 ## `inject`
+`inject` returns a property that lazily injects components as instance attributes.
+```python
+class Dependency(Component):
+    pass
+    
+print(type(inject(Dependency)))  # outputs: property  
+```
 Just as you can only provide subtypes of `Component` with `Environment`, 
 you can only inject subtypes of `Component`.
 ```python
@@ -303,7 +315,7 @@ class Dependent:
 
 Dependent().dependency  # raises NoEnvironment: Can't inject components outside an environment 
 ```
-Injected `Component`s are immutable
+Injected `Component` properties are immutable
 ```python
 with Environment():
     Dependent().dependency = 'mutate this'  # raises AttributeError: Can't set property
@@ -317,7 +329,94 @@ with Environment():
     assert instance1.log is instance1.log
     instance2 = NeedsLog()
     assert instance2.log is not instance1.log
-``` 
+```
+When lazily injected components are used in nested environments, the following
+rules apply:
+
+- Attributes injected in the outer environment refer to the same instances
+in the inner environment
+- Attributes injected in the inner environment are destroyed when the environment context
+closes
+```python
+with Environment():
+    outer = Dependent()
+    inner = Dependent()
+    outer_dependency = outer.dependency  # Accessing the lazy attribute instantiates the component
+    with Environment():
+        inner_dependency = inner.dependency
+        # Instances created in the outer environment are still available in the inner environment
+        assert outer.dependency is outer_dependency
+    # Since the inner environment context is closed, a new instance will be created
+    # in the outer environment
+    assert inner.dependency is not inner_dependency
+    assert outer.dependency is outer_dependency
+```
+## `create`
+`create` eagerly creates instances of components based on the current active environment.
+As such, calling it outside an environment raises `NoEnvironment`
+```python
+class Dependency(Component):
+    pass
+    
+print(type(create(Dependency)))  # raises: NoEnvironment: Can't inject components outside an environment
+
+with Environment():
+    print(type(create(Dependency)))  # outputs: Dependency
+```
+Note that `create` makes it possible to write something like:
+```python
+class Dependent:
+    with Environment():
+        dependency = create(Dependency)
+```
+Which is essentially equivalent to:
+```python
+class Dependent:
+    dependency = Dependency()
+```
+Or similarly
+```python
+with Environment():
+    def f(dependency=create(Dependency)):
+        print(dependency)
+```
+In the above examples, `dependency` is assigned to eagerly, and will not change
+based on changing environments. This very much defeats the purpose of `create`.
+The intended use case of `create` is for use inside functions and methods that can
+be run in different environments.
+```python
+def f():
+    dependency = create(Dependency)
+    print(type(dependency))
+
+class TestDependency(Dependency):
+    pass
+
+environment = Environment()
+test_environment = Environment(TestDependency)
+
+with environment:
+    f()  # outputs: Dependency
+
+with test_environment:
+    f()  # outputs: TestDependency
+```
+If you want to use `create` rather than `inject` to inject instance members in a class,
+do it inside `__init__`
+```python
+class Dependent:
+    def __init__(self):
+        self.dependency = create(Dependency)
+```
+Note that this will restrict instances of `Dependent` to be instantiated
+inside environments.
+
+Similarly, if you want to use `create` to assign to keyword arguments, wrap it in
+a `lambda`
+```python
+def f(dependency=lambda: create(Dependency)):
+    print(dependency())
+```
 ## `Singleton`
 To always inject the same instance of a component, inherit from `Singleton`.
 ```python

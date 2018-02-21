@@ -1,3 +1,4 @@
+from copy import copy, deepcopy
 from unittest.mock import create_autospec, MagicMock
 from functools import wraps
 from typing import Type, TypeVar, Set, Union, Dict
@@ -29,6 +30,15 @@ class _EnvironmentState(threading.local):
         self.mocks: Dict[Type[C], MagicMock] = dict()
         self.singletons: Dict[Type[C], C] = dict()
         self.instances: Dict[object, Dict[Type[C], C]] = WeakKeyDictionary()
+
+    def __deepcopy__(self, memodict):
+        new = _EnvironmentState()
+        new.pending = copy(self.pending)
+        new.old_current = copy(self.old_current)
+        new.mocks = copy(self.mocks)
+        new.singletons = copy(self.mocks)
+        new.instances = copy(self.instances)
+        return new
 
 
 class Environment:
@@ -137,10 +147,18 @@ class Environment:
         Register this environment as the current environment in this thread
         :return:
         """
-        self.__state.__init__()
         self.__old_current = Environment._current_env()
+        if self.__old_current is not None:
+            old_state = self.__old_current.__copy_state()
+            self.__set_state(old_state)
         Environment._set_current_env(self)
         return self
+
+    def __set_state(self, state):
+        self.__state = state
+
+    def __copy_state(self):
+        return deepcopy(self.__state)
 
     def has_singleton_instance(self, singleton_type):
         return singleton_type in self.__state.singletons
