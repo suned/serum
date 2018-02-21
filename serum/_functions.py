@@ -1,7 +1,9 @@
 from typing import TypeVar, Type, cast
 from unittest.mock import MagicMock
 
-from .exceptions import InvalidDependency
+import os
+
+from .exceptions import InvalidDependency, UnknownEnvironment
 from ._component import Component
 from ._environment import Environment
 
@@ -56,4 +58,23 @@ def mock(component: Type[C]) -> MagicMock:
     return Environment.mock(component)
 
 
-__all__ = ['inject', 'immutable', 'mock', 'create']
+def get_environment(name: str,
+                    default: Environment = None,
+                    **environments) -> Environment:
+    formatted_name = f'{name.lower()}_env'
+    os_environ = {key.lower(): value.lower()
+                  for key, value in os.environ.items()}
+    environment = os_environ.get(formatted_name, 'default')
+    if environment == 'default':
+        if default is None:
+            raise UnknownEnvironment(
+                'No environment specified and no default environment'
+            )
+        return default
+    try:
+        return environments[environment]
+    except KeyError:
+        raise UnknownEnvironment(environment)
+
+
+__all__ = ['inject', 'immutable', 'mock', 'create', 'get_environment']

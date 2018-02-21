@@ -42,3 +42,7 @@ class CircularDependency(Exception):
     dependencies
     """
     pass
+
+
+class UnknownEnvironment(Exception):
+    pass
