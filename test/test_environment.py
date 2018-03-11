@@ -152,6 +152,11 @@ class EnvironmentTests(unittest.TestCase):
         with self.assertRaises(NoEnvironment):
             Environment.current_env()
 
+    def test_missing_named_dependency(self):
+        e = Environment()
+        with self.assertRaises(KeyError):
+            _ = e['key']
+
     def test_getitem(self):
         e = Environment(key='value')
         self.assertEqual(e['key'], 'value')
