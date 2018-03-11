@@ -1,5 +1,6 @@
 import unittest
 from serum import inject, Component, Environment, abstractmethod
+from serum._lazy_dependency import LazyDependency
 from serum.exceptions import NoEnvironment, UnregisteredDependency, \
     InvalidDependency
 
@@ -32,6 +33,7 @@ class Dependent:
     some_component = inject(SomeComponent)
     abstract_component = inject(AbstractComponent)
     chain = inject(Chain)
+    value = inject('key')
 
 
 class InjectTests(unittest.TestCase):
@@ -50,6 +52,17 @@ class InjectTests(unittest.TestCase):
         with Environment():
             with self.assertRaises(AttributeError):
                 d.some_component = 'test'
+
+    def test_inside_environment(self):
+        with Environment():
+            self.assertIsInstance(inject(SomeComponent), SomeComponent)
+
+    def test_inject_string(self):
+        with Environment(key='value'):
+            self.assertEqual(inject('key'), 'value')
+
+    def test_static_dependency(self):
+        self.assertIsInstance(Dependent.some_component, LazyDependency)
 
     def test_inject_cant_get_abstract_component(self):
         d = Dependent()
@@ -94,3 +107,7 @@ class InjectTests(unittest.TestCase):
             d1 = Dependent()
             d2 = Dependent()
             self.assertIsNot(d1.some_component, d2.some_component)
+
+    def test_lazy_named_dependency(self):
+        with Environment(key='value'):
+            self.assertEqual(Dependent().value, 'value')

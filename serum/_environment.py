@@ -56,33 +56,58 @@ class Environment:
     __local_storage = _LocalStorage()
 
     @staticmethod
-    def _current_env() -> 'Environment':
-        return Environment.__local_storage.current_env
+    def current_env() -> 'Environment':
+        env = Environment.__local_storage.current_env
+        if env is None:
+            raise NoEnvironment(
+                'Can\'t provide dependencies outside an environment'
+            )
+        return env
 
     @staticmethod
-    def mock(component: Type[C]):
-        current_env = Environment._current_env()
-        if current_env is None:
+    def mock(dependency: Union[str, Type[C]]):
+        try:
+            current_env = Environment.current_env()
+        except NoEnvironment:
             raise NoEnvironment(
-                'Can\t register mock outside environment'
+                'Can\'t register mock outside environment'
             )
-        mock = create_autospec(component, instance=True)
-        current_env.__state.mocks[component] = mock
+        if isinstance(dependency, str):
+            value = current_env[dependency]
+            mock = create_autospec(value)
+            current_env.__named_dependencies[dependency] = mock
+            return mock
+        mock = create_autospec(dependency, instance=True)
+        current_env.__state.mocks[dependency] = mock
         return mock
 
     @staticmethod
     def _set_current_env(env: 'Environment'):
         Environment.__local_storage.current_env = env
 
-    def __init__(self, *args: Type[C]) -> None:
+    def __init__(self, *args: Type[C], **kwargs) -> None:
         """
         Construct a new environment
         :param args: Components to provide in this environment
+        :param kwargs: Named dependencies to provide in this environment
         """
         self.__registry: Set[Type[C]] = set()
         self.__state: _EnvironmentState = _EnvironmentState()
+        self.__named_dependencies = kwargs
+        self.__old_current = None
         for c in args:
             self.__use(c)
+
+    def __getitem__(self, item: str):
+        """
+        Get named dependency in this environment
+        :param item: Name of dependency
+        :return: dependency
+        """
+        try:
+            return self.__named_dependencies[item]
+        except KeyError:
+            raise KeyError(f'No named dependency: {item}')
 
     @property
     def pending(self) -> Set[Type[C]]:
@@ -147,7 +172,10 @@ class Environment:
         Register this environment as the current environment in this thread
         :return:
         """
-        self.__old_current = Environment._current_env()
+        try:
+            self.__old_current = Environment.current_env()
+        except NoEnvironment:
+            pass
         if self.__old_current is not None:
             old_state = self.__old_current.__copy_state()
             self.__set_state(old_state)
@@ -184,11 +212,7 @@ class Environment:
         :return: Instance of the most specific subtype of component
                  in this environment
         """
-        if Environment._current_env() is None:
-            raise NoEnvironment(
-                'Can\'t inject components outside an environment'
-            )
-        current_env = Environment._current_env()
+        current_env = Environment.current_env()
 
         def singleton(singleton_type: Type[C]) -> C:
             if current_env.has_singleton_instance(singleton_type):
@@ -247,7 +271,7 @@ class Environment:
             mro = inspect.getmro(subtype)
             return mro.index(component)
 
-        subtypes = [c for c in Environment._current_env()
+        subtypes = [c for c in Environment.current_env()
                     if issubclass(c, component)]
         distances = [mro_distance(subtype) for subtype in subtypes]
         counter = Counter(distances)
@@ -290,3 +314,9 @@ class Environment:
 
 
 __all__ = ['Environment']
+
+
+def provide(dependency, caller):
+    if isinstance(dependency, str):
+        return Environment.current_env()[dependency]
+    return Environment.provide(dependency, caller)

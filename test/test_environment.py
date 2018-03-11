@@ -148,8 +148,13 @@ class EnvironmentTests(unittest.TestCase):
     def test_context_manager(self):
         e = Environment()
         with e:
-            self.assertIs(Environment._current_env(), e)
-        self.assertIsNone(Environment._current_env())
+            self.assertIs(Environment.current_env(), e)
+        with self.assertRaises(NoEnvironment):
+            Environment.current_env()
+
+    def test_getitem(self):
+        e = Environment(key='value')
+        self.assertEqual(e['key'], 'value')
 
     def test_environment_gets_most_specific(self):
         class ConcreteComponentSub(ConcreteComponent):

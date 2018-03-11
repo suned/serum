@@ -1,9 +1,11 @@
-from typing import TypeVar, Type, cast
+from typing import TypeVar, Type, cast, overload, Any, Union
 from unittest.mock import MagicMock
 
 import os
 
-from .exceptions import InvalidDependency, UnknownEnvironment
+from serum._lazy_dependency import LazyDependency
+from ._environment import provide
+from .exceptions import InvalidDependency, UnknownEnvironment, NoEnvironment
 from ._component import Component
 from ._environment import Environment
 
@@ -11,30 +13,37 @@ C = TypeVar('C', bound=Component)
 T = TypeVar('T')
 
 
-def inject(component: Type[C]) -> C:
+class Key:
+    pass
+
+
+@overload
+def inject(dependency: Type[C]) -> C:
+    pass  # pragma: no cover
+
+
+@overload
+def inject(dependency: str) -> Any:
+    pass  # pragma: no cover
+
+
+def inject(dependency):
     """
-    Inject a Component of type component here
-    :param component: The type to inject
-    :return: A lazily instantiated component
+    Inject a dependency
+    :param dependency: The Component type or key to inject
+    :return: Instantiated Component or key
     """
-    if not issubclass(component, Component):
+    if not (isinstance(dependency, str) or issubclass(dependency, Component)):
         raise InvalidDependency(
-            'Attempt to inject type that is not a Component: {}'.format(
-                str(component)
+            'Attempt to inject dependency that is not a Component or str: {}'.format(
+                str(dependency)
             )
         )
 
-    def get_instance(caller) -> C:
-        return Environment.provide(component, caller)
-
-    return cast(C, property(fget=get_instance))
-
-
-def create(component: Type[C]) -> C:
-    class Key:
-        pass
-
-    return cast(C, Environment.provide(component, Key()))
+    try:
+        return provide(dependency, Key())
+    except NoEnvironment:
+        return LazyDependency(dependency)
 
 
 def immutable(value: T) -> T:
@@ -43,24 +52,32 @@ def immutable(value: T) -> T:
     :param value: The value to add
     :return: property that returns value
     """
-    def get(_) -> T:
-        return value
-    return cast(T, property(fget=get))
+    return cast(T, property(fget=lambda _: value))
 
 
-def mock(component: Type[C]) -> MagicMock:
+def mock(dependency: Union[str, Type[C]]) -> MagicMock:
     """
     Mock a component in the current environment
-    :param component: The type to mock
+    :param dependency: The type to mock
     :return: unittest.mock.MagicMock instance that replaces component in this
              environment
     """
-    return Environment.mock(component)
+    return Environment.mock(dependency)
 
 
 def match(environment_variable: str,
           default: Environment = None,
           **environments) -> Environment:
+    """
+    Match environment variable with Environment
+    :param environment_variable: environment variable to match environment against
+    :param default: default environment when no value is
+                    assigned to environment_variable
+    :param environments: kwargs of environments to use for different values of
+                         environment_variable
+    :return: Environment matched against the value of environment_variable
+             or default Environment is no value is assigned
+    """
     environment = os.environ.get(environment_variable, 'default')
     if environment == 'default':
         if default is None:
@@ -74,4 +91,4 @@ def match(environment_variable: str,
         raise UnknownEnvironment(environment)
 
 
-__all__ = ['inject', 'immutable', 'mock', 'create', 'match']
+__all__ = ['inject', 'immutable', 'mock', 'match']

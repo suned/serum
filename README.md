@@ -44,6 +44,10 @@ class NeedsSimpleLog:
     log = inject(SimpleLog)
 
 
+# Environments provide dependencies
+with Environment(SimpleLog):
+    assert isinstance(NeedsLog().log, SimpleLog)
+
 # Components can't be injected outside an environment
 NeedsLog().log.info('Hello serum!')  # raises: NoEnvironment
 
@@ -54,10 +58,6 @@ with Environment():
     # Concrete components can be injected even in an
     # empty environment
     NeedsSimpleLog().log.info('Hello serum!') # outputs: Hello serum!
-
-# Environments provide dependencies
-with Environment(SimpleLog):
-    assert isinstance(NeedsLog().log, SimpleLog)
 
 # Environments will always provide the most specific 
 # subtype of the requested type
@@ -76,12 +76,12 @@ with Environment(SimpleLog):
 - [`Component`](#component)
 - [`Environment`](#environment)
 - [`inject`](#inject)
-- [`create`](#create)
 - [`Singleton`](#singleton)
 - [`immutable`](#immutable)
 - [`mock`](#mock)
 - [`match`](#match)
 - [PEP 484](#pep-484)
+- [IPython Integration](#ipython-integration)
 
 ## `Component`
 `Component`s are dependencies that can be injected.
@@ -106,6 +106,7 @@ with Environment():
 ```python
 class ValidComponent(Component):  # OK!
     some_dependency = inject(SomeDependency)
+
     def __init__(self):
         self.value = self.some_dependency.method()
 
@@ -114,14 +115,10 @@ class InvalidComponent(Component):  # raises: InvalidComponent: __init__ method 
     def __init__(self, a):
         self.a = a
 ```
-To construct `Component`s with dependencies, you should instead use `inject` or `create`.
+To construct `Component`s with dependencies, you should instead use `inject`.
 ```python
 class ComponentWithDependencies(Component):
     log = inject(Log)
-
-class ComponentWithDependencies(Component):
-    def __init_(self):
-        self.log = create(Log)
 ```
 Note that if you access injected members in the constructor of any type,
 that type can only be instantiated inside an environment (see [`Environment`](#environment)).
@@ -147,6 +144,7 @@ class A(AbstractA):
 
 class B(AbstractB):
     a = inject(AbstractA)
+
     def __init__(self):
         self.a
 
@@ -235,6 +233,20 @@ class NotAComponent:
 
 Environment(NotAComponent)  # raises: InvalidDependency: Attempt to register type that is not a Component: <class 'C'> 
 ```
+
+You can however provide named values of any type using keyword arguments.
+```python
+class Database(Component):
+    connection_string = inject('connection_string')
+    
+
+connection_string = 'mysql+pymysql://root:my_pass@127.0.0.1:3333/my_db'
+environment = Environment(
+    connection_string=connection_string
+)
+with environment:
+    assert Database().connection_string == connection_string
+```
 `Environment`s define the scope of the injected components. This means that injected
 `Component` and `Singleton` instances are destroyed when the environment context closes.
 ```python
@@ -287,24 +299,44 @@ To share state between injected `Component`s in different threads, use mutable
 class/module variables and locking (yuck) 
 or [`queue`](https://docs.python.org/3.6/library/queue.html).
 ## `inject`
-`inject` returns a property that lazily injects components as instance attributes.
+When used inside an `Environment`, `inject` eagerly returns the requested dependency.
+`inject` only accepts subtypes of `Component` and `str` as its argument.
+Calling `inject` with a `Component` subtype as its argument will provide an instance of that
+type (or a subtype depending on the environment).
+```python
+class Dependency(Component):
+    pass
+
+
+with Environment():
+    assert isinstance(inject(Dependency), Dependency)
+```
+Calling `inject` with a `str` argument will return the named value associated with
+that keyword argument in the current `Environment`. Note that type inference is
+impossible for this pattern, and you have to annotate the type of the injected
+dependency if you want PEP484 features to work.
+```python
+with Environment(key='value'):
+    value: str = inject('key')
+    assert value == 'value'
+```
+When used outside an `Environment`, `inject` returns a 
+[descriptor](https://docs.python.org/3/reference/datamodel.html#implementing-descriptors) 
+that can be used to lazily inject a dependency at a later time.
 ```python
 class Dependency(Component):
     pass
     
-print(type(inject(Dependency)))  # outputs: property  
-```
-Just as you can only provide subtypes of `Component` with `Environment`, 
-you can only inject subtypes of `Component`.
-```python
-class NotAComponent:
-    pass
-    
+print(type(inject(Dependency)))  # outputs: LazyDependency
 
-class InvalidDependent:
-    dependency = inject(NotAComponent)  # raises: InvalidDependency: Attempt to inject type that is not a Component: <class 'C'>
+class Dependent:
+    dependency = inject(Dependency)
+
+
+with Environment():
+    assert isinstance(Dependent().dependency, Dependency) 
 ```
-Injected `Component`s can't be accessed outside an `Environment` context:
+Lazily injected `Component`s can't be accessed outside an `Environment` context:
 ```python
 class Dependency(Component):
     pass
@@ -314,16 +346,26 @@ class Dependent:
     dependency = inject(Dependency)
 
 
-Dependent().dependency  # raises NoEnvironment: Can't inject components outside an environment 
+Dependent().dependency  # raises NoEnvironment: Can't inject dependencies outside an environment 
+```
+Calling `inject` with anything else than a `Component` subtype or `str` is
+an error.
+```python
+class NotAComponent:
+    pass
+    
+
+class InvalidDependent:
+    dependency = inject(NotAComponent)  # raises: InvalidDependency: Attempt to inject type that is not a Component or str: <class 'C'>
 ```
 Injected `Component` properties are immutable
 ```python
 with Environment():
-    Dependent().dependency = 'mutate this'  # raises AttributeError: Can't set property
+    Dependent().dependency = 'mutate this'  # raises AttributeError: Can't set injected attribute
 ```
-An injected member of an instance will always refer to the same component 
-instance. Injected members of different instances will refer to different
-component instances
+A lazily injected member of an instance will always refer to the same component 
+instance. Lazily injected members of different instances will refer to different
+component instances.
 ```python
 with Environment():
     instance1 = NeedsLog()
@@ -352,23 +394,11 @@ with Environment():
     assert inner.dependency is not inner_dependency
     assert outer.dependency is outer_dependency
 ```
-## `create`
-`create` eagerly creates instances of components based on the current active environment.
-As such, calling it outside an environment raises `NoEnvironment`
-```python
-class Dependency(Component):
-    pass
-    
-print(type(create(Dependency)))  # raises: NoEnvironment: Can't inject components outside an environment
-
-with Environment():
-    print(type(create(Dependency)))  # outputs: Dependency
-```
-Note that `create` makes it possible to write something like:
+Note that the eager version of `inject` makes it possible to write something like:
 ```python
 class Dependent:
     with Environment():
-        dependency = create(Dependency)
+        dependency = inject(Dependency)
 ```
 Which is essentially equivalent to:
 ```python
@@ -378,16 +408,16 @@ class Dependent:
 Or similarly
 ```python
 with Environment():
-    def f(dependency=create(Dependency)):
+    def f(dependency=inject(Dependency)):
         print(dependency)
 ```
 In the above examples, `dependency` is assigned to eagerly, and will not change
-based on changing environments. This very much defeats the purpose of `create`.
-The intended use case of `create` is for use inside functions and methods that can
+based on changing environments. This very much defeats the purpose of `inject`.
+The intended use case of eager `inject` is for use inside functions and methods that can
 be run in different environments.
 ```python
 def f():
-    dependency = create(Dependency)
+    dependency = inject(Dependency)
     print(type(dependency))
 
 class TestDependency(Dependency):
@@ -402,24 +432,24 @@ with environment:
 with test_environment:
     f()  # outputs: TestDependency
 ```
-If you want to use `create` rather than `inject` to inject instance members in a class,
+If you want to use `inject` to eagerly inject instance members in a class,
 do it inside `__init__`
 ```python
 class Dependent:
     def __init__(self):
-        self.dependency = create(Dependency)
+        self.dependency = inject(Dependency)
 ```
 Note that this will restrict instances of `Dependent` to be instantiated
 inside environments.
 
-Similarly, if you want to use `create` to assign to keyword arguments, wrap it in
+Similarly, if you want to use `inject` to assign to keyword arguments, wrap it in
 a `lambda`
 ```python
-def f(dependency=lambda: create(Dependency)):
+def f(dependency=lambda: inject(Dependency)):
     print(dependency())
 ```
 ## `Singleton`
-To always inject the same instance of a component, inherit from `Singleton`.
+To always inject the same instance of a component in the same `Environment`, inherit from `Singleton`.
 ```python
 from serum import Singleton
 
@@ -437,6 +467,16 @@ with Environment():
     instance2 = NeedsExpensiveObject()
     assert instance1.expensive_instance is instance2.expensive_instance
 ```
+Note that even `Singleton` objects are destroyed when an `Environment`
+context is closed
+```python
+needs_expensive_object = NeedsExpensiveObject()
+with Environment():
+    expensive_instance = needs_expensive_object.expensive_instance
+
+with Environment():
+    assert expensive_instance is not needs_expensive_object.expensive_instance
+```
 ## `immutable`
 If you want to define immutable members (constants) in components (or any other classes), 
 `serum` provides the `immutable` utility
@@ -451,11 +491,6 @@ class Immutable:
 
 i = Immutable()
 i.value = 2  # raises AttributeError: Can't set property
-```
-This is just convenience for:
-```python
-class Immutable:
-    value = property(fget=lambda _: 1)
 ```
 ## `mock`
 `serum` has support for injecting `MagicMock`s from the builtin
@@ -543,8 +578,7 @@ with Environment():
 with values of an environment variable.
 ```python
 # my_script.py
-
-from serum import match, Component, abstractmethod, Environment, create
+from serum import match, Component, abstractmethod, Environment, inject
 
 class Dependency(Component):
     @abstractmethod
@@ -569,7 +603,7 @@ environment = match(
     TEST=Environment(TestDependency)
 )
 with environment:
-    create(Dependency).method()
+    inject(Dependency).method()
       
 ```
 ```
@@ -588,8 +622,31 @@ Test!
 `serum` is designed for type inference with PEP 484 tools (work in progress). 
 This feature is currently only supported for the PyCharm type checker.
 
-
 ![type inference in PyCharm](https://i.imgur.com/8fvvAQ2.png)
+## IPython Integration
+It can be slightly annoying to import some `Environment` and start it as a
+context manager in the beginning of every IPython session. 
+Moreover, you quite often want to run an IPython REPL in a special environment,
+e.g to provide configuration that is normally supplied through command line
+arguments in some other way.
+
+To this end `serum` can act as an IPython extension. To activate it,
+add the following lines to your `ipython_config.py`:
+```python
+c.InteractiveShellApp.extensions = ['serum']
+```
+Finally, create a file named `ipython_environment.py` in the root of your project. In it,
+assign the `Environment` instance you would like automatically started to a global
+variable named `environment`:
+```python
+# ipython_environment.py
+from serum import Environment
+
+
+environment = Environment()
+```
+IPython will now enter this environment automatically in the beginning of
+every REPL session started in the root of your project.
 # Why?
 If you've been researching Dependency Injection frameworks for python,
 you've no doubt come across this opinion:

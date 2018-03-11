@@ -1,3 +1,4 @@
+from typing import TypeVar
 from abc import ABCMeta
 import inspect
 from .exceptions import InvalidComponent
@@ -38,7 +39,6 @@ class Component(metaclass=_ComponentMeta):
 
     MyAbstractComponent()  # raises: TypeError
     """
-    pass
 
 
 class Singleton(Component):

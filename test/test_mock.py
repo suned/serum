@@ -53,3 +53,17 @@ class MockTests(unittest.TestCase):
             some_callable_component = mock(SomeCallableComponent)
             some_callable_component.return_value = 'mocked value'
             self.assertEqual(some_callable_component(), 'mocked value')
+
+    def test_mock_replaces_named_value(self):
+        class Dependency:
+            def method(self):
+                pass
+
+        with Environment(key=Dependency()):
+            mock_dependency = mock('key')
+            mock_dependency.method.return_value = 'value'
+            with self.assertRaises(AttributeError):
+                mock_dependency.no_such_method()
+            injected = inject('key')
+            self.assertEqual(injected, mock_dependency)
+            self.assertEqual(mock_dependency.method(), 'value')
