@@ -74,7 +74,6 @@ with Environment(SimpleLog, StubLog):
 - [`Dependency`](#dependency)
 - [`Environment`](#environment)
 - [`inject`](#inject)
-- [`inject.name`](#inject.name)
 - [`Singleton`](#singleton)
 - [`immutable`](#immutable)
 - [`mock`](#mock)
@@ -106,7 +105,7 @@ is limited such that:
 - If `__init__` takes more than the `self` parameter, it must be
 decorated with `inject`.
 - All parameters to `__init__` except `self` must be annotated
-with other `Dependency` subclasses or `inject.name` (see [`inject.name`](#inject.name)).
+with other `Dependency` subclasses or `inject.name` (see [`inject`](#inject)).
 ```python
 @inject
 class ValidDependency(Dependency):  # OK!
@@ -236,7 +235,6 @@ class NotADependency:
 
 Environment(NotADependency)  # raises: InvalidDependency: Attempt to register type that is not a Dependency: <class 'C'> 
 ```
-
 You can however provide named dependencies of any type using keyword arguments using [`inject.name`](#inject.name).
 ```python
 @inject
@@ -250,17 +248,6 @@ environment = Environment(
 )
 with environment:
     assert Database().connection_string == connection_string
-```
-`Environment`s define the scope of the injected dependencies. This means that injected
-`Dependency` and `Singleton` instances are destroyed when the environment context closes.
-```python
-needs_super = NeedsSuper()
-
-with Environment():
-    instance = needs_super.instance
-
-with Environment():
-    assert instance is not needs_super.instance
 ```
 `Environment`s are local to each thread. This means that when using multi-threading
 each thread must define its own environment.
@@ -278,30 +265,6 @@ with Environment():
     threading.Thread(target=worker_without_environment()).start()
     threading.Thread(target=worker_with_environment()).start()
 ```
-Moreover, injected `Component` and `Singleton` instances are local to each thread.
-This means you can't share state between threads through injected components.
-```python
-from queue import Queue
-
-q = Queue()
-needs_super = NeedsSuper()
-environment = Environment()
-
-def first_worker():
-    instance = q.get()
-    with environment:
-        assert instance is not needs_super.instance
-
-def second_worker():
-    with environment:
-        q.put(needs_super.instance)
-
-threading.Thread(target=first_worker()).start()
-threading.Thread(target=second_worker()).start()
-```
-To share state between injected `Component`s in different threads, use mutable 
-class/module variables and locking (yuck) 
-or [`queue`](https://docs.python.org/3.6/library/queue.html).
 ## `inject`
 When used inside an `Environment`, `inject` eagerly returns the requested dependency.
 `inject` only accepts subtypes of `Component` and `str` as its argument.
