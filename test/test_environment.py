@@ -4,21 +4,21 @@ import gc
 
 from queue import Queue
 
-from serum import Environment, Component, abstractmethod, Singleton, inject
+from serum import Environment, Dependency, abstractmethod, Singleton, inject
 from serum.exceptions import InvalidDependency, UnregisteredDependency, \
     NoEnvironment, AmbiguousDependencies, CircularDependency
 import threading
 
 
-class SomeComponent(Component):
+class SomeComponent(Dependency):
     pass
 
 
-class SomeOtherComponent(Component):
+class SomeOtherComponent(Dependency):
     pass
 
 
-class AbstractComponent(Component):
+class AbstractComponent(Dependency):
     @abstractmethod
     def m(self):
         pass
@@ -196,10 +196,10 @@ class EnvironmentTests(unittest.TestCase):
             self.assertIs(s2, s4)
 
     def test_circular_dependency(self):
-        class AbstractA(Component):
+        class AbstractA(Dependency):
             pass
 
-        class AbstractB(Component):
+        class AbstractB(Dependency):
             pass
 
         class A(AbstractA):

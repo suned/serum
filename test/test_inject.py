@@ -1,15 +1,14 @@
 import unittest
-from serum import inject, Component, Environment, abstractmethod
-from serum._lazy_dependency import LazyDependency
-from serum.exceptions import NoEnvironment, UnregisteredDependency, \
-    InvalidDependency
+from serum import inject, Dependency, Environment, abstractmethod, Key
+from serum._injected_dependency import Dependency
+from serum.exceptions import NoEnvironment, UnregisteredDependency
 
 
-class SomeComponent(Component):
+class SomeComponent(Dependency):
     pass
 
 
-class AbstractComponent(Component):
+class AbstractComponent(Dependency):
     @abstractmethod
     def abstract(self):
         pass
@@ -25,7 +24,7 @@ class AlternativeComponent(AbstractComponent):
         pass
 
 
-class Chain(Component):
+class Chain(Dependency):
     some_component = inject(SomeComponent)
 
 
@@ -62,7 +61,7 @@ class InjectTests(unittest.TestCase):
             self.assertEqual(inject('key'), 'value')
 
     def test_static_dependency(self):
-        self.assertIsInstance(Dependent.some_component, LazyDependency)
+        self.assertIsInstance(Dependent.some_component, Dependency)
 
     def test_inject_cant_get_abstract_component(self):
         d = Dependent()
@@ -90,12 +89,6 @@ class InjectTests(unittest.TestCase):
         with Environment():
             self.assertIsInstance(d.chain, Chain)
             self.assertIsInstance(d.chain.some_component, SomeComponent)
-
-    def test_inject_non_component_fails(self):
-        class Test:
-            pass
-        with self.assertRaises(InvalidDependency):
-            inject(Test)
 
     def test_injected_is_always_same_instance(self):
         with Environment():

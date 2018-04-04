@@ -14,11 +14,11 @@
 ```
 # Quickstart
 ```python
-from serum import inject, Component, Environment, abstractmethod, mock
+from serum import inject, Dependency, Environment, abstractmethod
 
 
-# Components are injectable types. They can be abstract... 
-class AbstractLog(Component):
+# Dependency subclasses are injectable types. They can be abstract... 
+class AbstractLog(Dependency):
     @abstractmethod
     def info(self, message: str):
         pass
@@ -35,47 +35,46 @@ class StubLog(SimpleLog):
         pass
 
 
+@inject  # Dependencies are injected using a class decorator...
 class NeedsLog:
-    # Components can be injected
-    log = inject(AbstractLog)
+    log: AbstractLog  # ...and class level annotations...
 
-    
+
 class NeedsSimpleLog:
-    log = inject(SimpleLog)
+    @inject  # ...or using function argument annotations and a function decorator
+    def __init__(self, log: SimpleLog):
+        self.log = log 
 
 
 # Environments provide dependencies
 with Environment(SimpleLog):
     assert isinstance(NeedsLog().log, SimpleLog)
 
-# Components can't be injected outside an environment
-NeedsLog().log.info('Hello serum!')  # raises: NoEnvironment
-
 with Environment():
-    # Abstract components can only be injected in environments
-    # that provide concrete implementations
+    # Abstract dependencies can only be injected in environments
+    # that provide concrete implementations.
     NeedsLog().log.info('Hello serum!')  # raises: UnregisteredDependency
-    # Concrete components can be injected even in an
+    # Concrete dependencies can be injected even in an
     # empty environment
     NeedsSimpleLog().log.info('Hello serum!') # outputs: Hello serum!
 
+
+# The default Environment is empty
+assert isinstance(NeedsSimpleLog().log, SimpleLog)
+
+
 # Environments will always provide the most specific 
-# subtype of the requested type
+# subtype of the requested type. This allows you to change which concrete
+# dependencies are injected.
 with Environment(SimpleLog, StubLog):
     NeedsLog().log.info('Hello serum!')  # doesn't output anything
     NeedsSimpleLog().log.info('Hello serum!')  # doesn't output anything
-
-with Environment(SimpleLog):
-    # mock is a helper method for mocking components
-    mock_log = mock(AbstractLog)
-    mock_log.info.return_value = 'Mocked!'
-    assert NeedsLog().log is mock_log
-    assert NeedsLog().log.info('') == 'Mocked!'
 ```
 # Documentation
-- [`Component`](#component)
+- [`Dependency`](#dependency)
 - [`Environment`](#environment)
 - [`inject`](#inject)
+- [`inject.name`](#inject.name)
 - [`Singleton`](#singleton)
 - [`immutable`](#immutable)
 - [`mock`](#mock)
@@ -83,80 +82,86 @@ with Environment(SimpleLog):
 - [PEP 484](#pep-484)
 - [IPython Integration](#ipython-integration)
 
-## `Component`
-`Component`s are dependencies that can be injected.
+## `Dependency`
+All subclasses of `Dependency` can be injected.
 ```python
-from serum import Component, Environment, inject
+from serum import Dependency, Environment, inject
 
 
-class Log(Component):
+class Log(Dependency):
     def info(self, message):
         print(message)
 
-
+@inject
 class NeedsLog:
-    log = inject(Log)
+    log: Log
 
 
-instance = NeedsLog()
-with Environment():
-    assert isinstance(instance.log, Log)
+
+assert isinstance(NeedsLog().log, Log)
 ```
-`Component`s can only define an `__init__` method that takes 1 parameter.
+`serum` relies on being able to inject all dependencies for a `Dependency`
+subclass recursively. To achieve this, the `__init__` method of `Dependency` subclasses
+is limited such that: 
+- If `__init__` takes more than the `self` parameter, it must be
+decorated with `inject`.
+- All parameters to `__init__` except `self` must be annotated
+with other `Dependency` subclasses or `inject.name` (see [`inject.name`](#inject.name)).
 ```python
-class ValidComponent(Component):  # OK!
-    some_dependency = inject(SomeDependency)
+@inject
+class ValidDependency(Dependency):  # OK!
+    some_dependency: SomeDependency
 
     def __init__(self):
         self.value = self.some_dependency.method()
 
+class AlsoValidDependency(Dependency):  # Also OK!
+    @inject
+    def __init__(self, some_dependency: SomeDependency):
+        pass
 
-class InvalidComponent(Component):  # raises: InvalidComponent: __init__ method in Components can only take 1 parameter
+
+class InvalidDependency(Dependency):  # raises: InvalidDependency: __init__ method of Dependency subclasses that takes parameters must be decorated with inject
     def __init__(self, a):
-        self.a = a
-```
-To construct `Component`s with dependencies, you should instead use `inject`.
-```python
-class ComponentWithDependencies(Component):
-    log = inject(Log)
-```
-Note that if you access injected members in the constructor of any type,
-that type can only be instantiated inside an environment (see [`Environment`](#environment)).
+        pass
 
-Also note that circular dependencies preventing component instantiation leads to
+class AlsoInvalidDependency(Dependency):  # raises: InvalidDependency: __init__ method of Dependency subclasses that takes parameters must have all parameters except "self" annotated with Dependency types or Key
+    @inject
+    def __init__(self, a):
+        pass
+```
+
+Note that circular dependencies preventing `Dependency` instantiation leads to
 an error.
 ```python
-class AbstractA(Component):
+class AbstractA(Dependency):
     pass
 
 
-class AbstractB(Component):
+class AbstractB(Dependency):
     pass
 
 
 class A(AbstractA):
-    b = inject(AbstractB)
 
-
-    def __init__(self):
-        self.b
-
+    @inject
+    def __init__(self, b: AbstractB):
+        self.b = b
 
 class B(AbstractB):
-    a = inject(AbstractA)
+    @inject
+    def __init__(self, a: AbstractA):
+        self.a = a
 
-    def __init__(self):
-        self.a
-
-
+@inject
 class Dependent:
-    a = inject(AbstractA)
+    a: AbstractA
 
 
 with Environment(A, B):
-    Dependent().a  # raises: CircularDependency: Circular dependency encountered while injecting <class 'AbstractA'> in <B object at 0x1061e3898>
+    Dependent()  # raises: CircularDependency: Circular dependency encountered while injecting <class 'AbstractA'> in <B object at 0x1061e3898>
 ```
-`Component`s can be abstract. Abstract `Component`s can only be injected in an
+`Dependency` subclasses can be abstract. Abstract dependencies can only be injected in an
 `Environment` that provides a concrete implementation. For convenience you can import
 `abstractmethod`, `abstractclassmethod` or `abstractclassmethod` from `serum`,
 but they simply refer to the decorators from the `abc` module 
@@ -165,19 +170,17 @@ in the standard library.
 from serum import abstractmethod
 
 
-class AbstractLog(Component):
+class AbstractLog(Dependency):
     @abstractmethod
     def info(self, message):
         pass
         
-        
+@inject
 class NeedsLog:
-    log = inject(AbstractLog)
+    log: AbstractLog
 
 
-instance = NeedsLog()
-with Environment():
-    instance.log  # raises UnregisteredDependency: No concrete implementation of <class 'AbstractLog'> found
+NeedsLog()  # raises UnregisteredDependency: No concrete implementation of <class 'AbstractLog'> found
 
 
 class ConcreteLog(AbstractLog):
@@ -186,22 +189,22 @@ class ConcreteLog(AbstractLog):
 
 
 with Environment(ConcreteLog):
-    instance.log  # Ok!
+    NeedsLog()  # Ok!
 ```
 ## `Environment`
-`Environment`s provide implementations of `Component`s. An `Environment` will always provide the most
+`Environment`s provide implementations of dependencies. An `Environment` will always provide the most
 specific subtype of the requested type (in Method Resolution Order).
 ```python
-class Super(component):
+class Super(Dependency):
     pass
 
 
 class Sub(Super):
     pass
 
-
+@inject
 class NeedsSuper:
-    instance = inject(Super)
+    instance: Super
 
 
 with Environment(Sub):
@@ -214,7 +217,7 @@ class AlsoSub(Super):
 
 
 with Environment(Sub, AlsoSub):
-    NeedsSuper().instance  # raises: AmbiguousDependencies: Attempt to inject type <class 'Log'> with equally specific provided subtypes: <class 'MockLog'>, <class 'FileLog'>
+    NeedsSuper() # raises: AmbiguousDependencies: Attempt to inject type <class 'Log'> with equally specific provided subtypes: <class 'MockLog'>, <class 'FileLog'>
 ```
 `Environment`s can also be used as decorators:
 ```python
@@ -225,19 +228,20 @@ def f():
     assert isinstance(NeedsSuper().instance, Sub)
 
 ```
-You can only provide subtypes of `Component` with `Environment`.
+You can only provide subtypes of `Dependency` with `Environment`.
 ```python
-class NotAComponent:
+class NotADependency:
     pass
 
 
-Environment(NotAComponent)  # raises: InvalidDependency: Attempt to register type that is not a Component: <class 'C'> 
+Environment(NotADependency)  # raises: InvalidDependency: Attempt to register type that is not a Dependency: <class 'C'> 
 ```
 
-You can however provide named values of any type using keyword arguments.
+You can however provide named dependencies of any type using keyword arguments using [`inject.name`](#inject.name).
 ```python
-class Database(Component):
-    connection_string = inject('connection_string')
+@inject
+class Database(Dependency):
+    connection_string: inject.name()
     
 
 connection_string = 'mysql+pymysql://root:my_pass@127.0.0.1:3333/my_db'
@@ -247,8 +251,8 @@ environment = Environment(
 with environment:
     assert Database().connection_string == connection_string
 ```
-`Environment`s define the scope of the injected components. This means that injected
-`Component` and `Singleton` instances are destroyed when the environment context closes.
+`Environment`s define the scope of the injected dependencies. This means that injected
+`Dependency` and `Singleton` instances are destroyed when the environment context closes.
 ```python
 needs_super = NeedsSuper()
 
@@ -304,12 +308,15 @@ When used inside an `Environment`, `inject` eagerly returns the requested depend
 Calling `inject` with a `Component` subtype as its argument will provide an instance of that
 type (or a subtype depending on the environment).
 ```python
-class Dependency(Component):
+class Dependency(Dependency):
     pass
 
+@inject
+def f(dependency: Dependency):
+    assert isinstance(dependency, Dependency)
 
 with Environment():
-    assert isinstance(inject(Dependency), Dependency)
+    f()
 ```
 Calling `inject` with a `str` argument will return the named value associated with
 that keyword argument in the current `Environment`. Note that type inference is

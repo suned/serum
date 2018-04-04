@@ -1,8 +1,9 @@
 from abc import abstractmethod, abstractstaticmethod, abstractclassmethod
 
-from ._component import *
+from ._dependency import *
 from ._environment import *
 from ._functions import *
+from ._inject import *
 
 
 def load_ipython_extension(_):

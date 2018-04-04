@@ -22,13 +22,6 @@ class UnregisteredDependency(Exception):
     pass
 
 
-class InvalidComponent(Exception):
-    """
-    Exception type to signal bad declaration of a Component subtype
-    """
-    pass
-
-
 class AmbiguousDependencies(Exception):
     """
     Exception type to signal registering conflicting types in an environment
@@ -45,4 +38,8 @@ class CircularDependency(Exception):
 
 
 class UnknownEnvironment(Exception):
+    pass
+
+
+class NoNamedDependency(Exception):
     pass

@@ -1,21 +1,23 @@
+import warnings
 from copy import copy, deepcopy
 from unittest.mock import create_autospec, MagicMock
 from functools import wraps
 from typing import Type, TypeVar, Set, Union, Dict
-from weakref import WeakKeyDictionary
 
+from serum._key import Key
+from serum.exceptions import NoNamedDependency
 from .exceptions import (
     InvalidDependency,
     NoEnvironment,
     UnregisteredDependency,
     AmbiguousDependencies,
     CircularDependency)
-from ._component import Component, Singleton
+from ._dependency import Dependency, Singleton
 import threading
 import inspect
 from collections import Counter
 
-C = TypeVar('C', bound=Component)
+C = TypeVar('C', bound=Dependency)
 
 
 class _LocalStorage(threading.local):
@@ -29,7 +31,6 @@ class _EnvironmentState(threading.local):
         self.old_current: Environment = None
         self.mocks: Dict[Type[C], MagicMock] = dict()
         self.singletons: Dict[Type[C], C] = dict()
-        self.instances: Dict[object, Dict[Type[C], C]] = WeakKeyDictionary()
 
     def __deepcopy__(self, memodict):
         new = _EnvironmentState()
@@ -37,7 +38,6 @@ class _EnvironmentState(threading.local):
         new.old_current = copy(self.old_current)
         new.mocks = copy(self.mocks)
         new.singletons = copy(self.mocks)
-        new.instances = copy(self.instances)
         return new
 
 
@@ -59,9 +59,7 @@ class Environment:
     def current_env() -> 'Environment':
         env = Environment.__local_storage.current_env
         if env is None:
-            raise NoEnvironment(
-                'Can\'t provide dependencies outside an environment'
-            )
+            return Environment()
         return env
 
     @staticmethod
@@ -107,7 +105,9 @@ class Environment:
         try:
             return self.__named_dependencies[item]
         except KeyError:
-            raise KeyError(f'No named dependency: {item}')
+            raise NoNamedDependency(
+                f'Named dependency "{item}" not found in: {repr(self)}'
+            )
 
     @property
     def pending(self) -> Set[Type[C]]:
@@ -120,7 +120,7 @@ class Environment:
         return component in self.__state.mocks
 
     def __use(self, component: Type[C]) -> 'Environment':
-        if not issubclass(component, Component):
+        if not issubclass(component, Dependency):
             raise InvalidDependency(
                 'Attempt to register type that is not a Component: {}'.format(
                     str(component)
@@ -204,10 +204,9 @@ class Environment:
         self.__old_current = None
 
     @staticmethod
-    def provide(component: Type[C], caller: object) -> Union[C, MagicMock]:
+    def provide(component: Type[C]) -> Union[C, MagicMock]:
         """
         Provide a component in this environment
-        :param caller:
         :param component: The type to provide
         :return: Instance of the most specific subtype of component
                  in this environment
@@ -227,7 +226,6 @@ class Environment:
 
         def instance(component_type: Type[C]) -> C:
             component_instance = component_type()
-            current_env.set_instance(component, caller, component_instance)
             return component_instance
 
         def is_singleton(st):
@@ -240,15 +238,12 @@ class Environment:
 
         if current_env.is_mocked(component):
             return current_env.get_mock(component)
-        if current_env.has_instance(component, caller):
-            return current_env.get_instance(component, caller)
         try:
             subtype = Environment._find_subtype(component)
             if subtype in current_env.pending:
                 raise CircularDependency(
-                    'Circular dependency encountered while injecting {} in {}'.format(
-                        str(component),
-                        str(caller)
+                    'Circular dependency encountered while injecting {}'.format(
+                        str(component)
                     )
                 )
             current_env.pending.add(subtype)
@@ -260,8 +255,9 @@ class Environment:
                 return instantiate(component)
             except TypeError:
                 raise UnregisteredDependency(
-                    'No concrete implementation of {} found'.format(
-                        str(component)
+                    'No concrete implementation of {} found in {}'.format(
+                        str(component),
+                        repr(current_env)
                     )
                 )
 
@@ -297,26 +293,24 @@ class Environment:
     def add_singleton(self, singleton_type, instance):
         self.__state.singletons[singleton_type] = instance
 
-    def has_instance(self, component, caller):
-        return caller in self.__state.instances and component in self.__state.instances[caller]
-
-    @property
-    def instances(self):
-        return self.__state.instances
-
-    def get_instance(self, component, caller):
-        return self.__state.instances[caller][component]
-
-    def set_instance(self, component, caller, component_instance):
-        if caller not in self.__state.instances:
-            self.__state.instances[caller] = {}
-        self.__state.instances[caller][component] = component_instance
+    def __repr__(self):
+        dependencies = [repr(dependency) for dependency in self.__registry]
+        named_dependencies = [f'{key}={repr(value)}' for key, value
+                              in self.__named_dependencies.items()]
+        args = ', '.join(dependencies + named_dependencies)
+        return f'Environment({args})'
 
 
 __all__ = ['Environment']
 
 
-def provide(dependency, caller):
-    if isinstance(dependency, str):
-        return Environment.current_env()[dependency]
-    return Environment.provide(dependency, caller)
+def provide(dependency):
+    if isinstance(dependency, Key):
+        value = Environment.current_env()[dependency.name]
+        if not isinstance(value, dependency.dependency_type):
+            warnings.warn(f'Named dependency {dependency.name} was expected'
+                          f' to have type {dependency.dependency_type}'
+                          f' but is type {type(value)}',
+                          RuntimeWarning)
+        return value
+    return Environment.provide(dependency)

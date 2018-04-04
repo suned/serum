@@ -1,14 +1,14 @@
 import unittest
-from serum import mock, Component, inject, Environment
+from serum import mock, Dependency, inject, Environment
 from serum.exceptions import NoEnvironment
 
 
-class SomeComponent(Component):
+class SomeComponent(Dependency):
     def method(self):
         return 'some value'
 
 
-class SomeCallableComponent(Component):
+class SomeCallableComponent(Dependency):
     def __call__(self):
         return 'some value'
 

@@ -3,7 +3,7 @@ import argparse
 from datetime import datetime
 from unittest.mock import MagicMock
 import sqlite3
-from serum import Component, Environment, inject, abstractmethod, immutable
+from serum import Dependency, Environment, inject, abstractmethod, immutable
 
 
 class ListItem(NamedTuple):
@@ -12,7 +12,7 @@ class ListItem(NamedTuple):
     due_date = datetime
 
 
-class Log(Component):
+class Log(Dependency):
     @abstractmethod
     def info(self, message: str):
         pass
@@ -22,7 +22,7 @@ class Log(Component):
         pass
 
 
-class ItemReader(Component):
+class ItemReader(Dependency):
     @abstractmethod
     def more_items(self):
         pass
@@ -32,13 +32,13 @@ class ItemReader(Component):
         pass
 
 
-class ItemWriter(Component):
+class ItemWriter(Dependency):
     @abstractmethod
     def write_item(self, item: ListItem):
         pass
 
 
-class Database(Component):
+class Database(Dependency):
     @abstractmethod
     def save_item(self, item: ListItem) -> None:
         pass
@@ -48,7 +48,7 @@ class Database(Component):
         pass
 
 
-class Arguments(Component):
+class Arguments(Dependency):
     @property
     @abstractmethod
     def log_level(self) -> int:
