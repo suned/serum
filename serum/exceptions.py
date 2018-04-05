@@ -1,11 +1,3 @@
-class NoEnvironment(Exception):
-    """
-    Exception type to signal attempts to call functions that require
-    an environment outside an environment
-    """
-    pass
-
-
 class InvalidDependency(Exception):
     """
     Exception type to signal attempts to inject/register types that do

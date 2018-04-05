@@ -1,47 +1,13 @@
-import inspect
-from typing import TypeVar, Type, cast, overload, Any, Union, Callable
+from typing import TypeVar, Type, cast, Union
 from unittest.mock import MagicMock
 
 import os
-from functools import wraps
-
-from serum._key import Key
-from ._injected_dependency import Dependency as InjectedDependency
-from ._environment import provide
 from .exceptions import UnknownEnvironment
 from ._dependency import Dependency
 from ._environment import Environment
 
 C = TypeVar('C', bound=Dependency)
 T = TypeVar('T')
-
-
-@overload
-def inject(dependency: Type[C]) -> C:
-    pass  # pragma: no cover
-
-
-@overload
-def inject(dependency: Type[T]) -> Type[T]:
-    pass  # pragma: no cover
-
-
-@overload
-def inject(dependency: Callable[..., T]) -> Callable[..., T]:
-    pass  # pragma: no cover
-
-
-@overload
-def inject(dependency: str) -> Any:
-    pass  # pragma: no cover
-
-
-def inject(dependency):
-    """
-    Inject a dependency
-    :param dependency: The Component type or key to inject
-    :return: Instantiated Component or key
-    """
 
 
 def immutable(value: T) -> T:
@@ -89,4 +55,4 @@ def match(environment_variable: str,
         raise UnknownEnvironment(environment)
 
 
-__all__ = ['inject', 'immutable', 'mock', 'match']
+__all__ = ['immutable', 'mock', 'match']

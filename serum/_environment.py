@@ -7,8 +7,6 @@ from typing import Type, TypeVar, Set, Union, Dict
 from serum._key import Key
 from serum.exceptions import NoNamedDependency
 from .exceptions import (
-    InvalidDependency,
-    NoEnvironment,
     UnregisteredDependency,
     AmbiguousDependencies,
     CircularDependency)
@@ -64,12 +62,7 @@ class Environment:
 
     @staticmethod
     def mock(dependency: Union[str, Type[C]]):
-        try:
-            current_env = Environment.current_env()
-        except NoEnvironment:
-            raise NoEnvironment(
-                'Can\'t register mock outside environment'
-            )
+        current_env = Environment.current_env()
         if isinstance(dependency, str):
             value = current_env[dependency]
             mock = create_autospec(value)
@@ -120,12 +113,6 @@ class Environment:
         return component in self.__state.mocks
 
     def __use(self, component: Type[C]) -> 'Environment':
-        if not issubclass(component, Dependency):
-            raise InvalidDependency(
-                'Attempt to register type that is not a Component: {}'.format(
-                    str(component)
-                )
-            )
         self.__registry.add(component)
         return self
 
@@ -172,13 +159,9 @@ class Environment:
         Register this environment as the current environment in this thread
         :return:
         """
-        try:
-            self.__old_current = Environment.current_env()
-        except NoEnvironment:
-            pass
-        if self.__old_current is not None:
-            old_state = self.__old_current.__copy_state()
-            self.__set_state(old_state)
+        self.__old_current = Environment.current_env()
+        old_state = self.__old_current.__copy_state()
+        self.__set_state(old_state)
         Environment._set_current_env(self)
         return self
 

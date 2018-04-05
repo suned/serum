@@ -1,106 +1,149 @@
 import unittest
-from serum import inject, Dependency, Environment, abstractmethod, Key
-from serum._injected_dependency import Dependency
-from serum.exceptions import NoEnvironment, UnregisteredDependency
+from serum import inject, Dependency, Environment, abstractmethod
+from serum._injected_dependency import Dependency as InjectedDependency
+from serum.exceptions import UnregisteredDependency
 
 
-class SomeComponent(Dependency):
+class SomeDependency(Dependency):
     pass
 
 
-class AbstractComponent(Dependency):
+class AbstractDependency(Dependency):
     @abstractmethod
     def abstract(self):
         pass
 
 
-class ConcreteComponent(AbstractComponent):
+class ConcreteDependency(AbstractDependency):
     def abstract(self):
         pass
 
 
-class AlternativeComponent(AbstractComponent):
+class AlternativeDependency(AbstractDependency):
     def abstract(self):
         pass
 
 
+@inject
 class Chain(Dependency):
-    some_component = inject(SomeComponent)
+    some_component: SomeDependency
 
 
+@inject
 class Dependent:
-    some_component = inject(SomeComponent)
-    abstract_component = inject(AbstractComponent)
-    chain = inject(Chain)
-    value = inject('key')
+    some_dependency: SomeDependency
+    chain: Chain
+
+
+@inject
+class AbstractDependent:
+    abstract_dependency: AbstractDependency
+
+
+class SubDependent(AbstractDependent):
+    pass
+
+
+@inject
+class OverwriteDependent(AbstractDependent):
+    abstract_dependency: AlternativeDependency
+
+
+@inject
+class NamedDependent:
+    key: inject.name()
 
 
 class InjectTests(unittest.TestCase):
-    def test_inject_fails_outside_environment(self):
-        d = Dependent()
-        with self.assertRaises(NoEnvironment):
-            _ = d.some_component
 
     def test_inject_gets_concrete_component(self):
-        with Environment():
-            d = Dependent()
-            self.assertIsInstance(d.some_component, SomeComponent)
+        d = Dependent()
+        self.assertIsInstance(d.some_dependency, SomeDependency)
 
     def test_injected_component_is_immutable(self):
         d = Dependent()
-        with Environment():
-            with self.assertRaises(AttributeError):
-                d.some_component = 'test'
+        with self.assertRaises(AttributeError):
+            d.some_dependency = 'test'
 
-    def test_inside_environment(self):
-        with Environment():
-            self.assertIsInstance(inject(SomeComponent), SomeComponent)
-
-    def test_inject_string(self):
-        with Environment(key='value'):
-            self.assertEqual(inject('key'), 'value')
+    @Environment(key='value')
+    @inject
+    def test_inject_string(self, key: inject.name()):
+        self.assertEqual(key, 'value')
 
     def test_static_dependency(self):
-        self.assertIsInstance(Dependent.some_component, Dependency)
+        self.assertIsInstance(Dependent.some_dependency, InjectedDependency)
 
     def test_inject_cant_get_abstract_component(self):
-        d = Dependent()
         with Environment():
             with self.assertRaises(UnregisteredDependency):
-                _ = d.abstract_component
+                AbstractDependent()
 
     def test_inject_can_get_concrete_component(self):
-        d = Dependent()
-        with Environment(ConcreteComponent):
-            self.assertIsInstance(d.abstract_component, AbstractComponent)
-            self.assertIsInstance(d.abstract_component, ConcreteComponent)
+        with Environment(ConcreteDependency):
+            d = AbstractDependent()
+            self.assertIsInstance(d.abstract_dependency, AbstractDependency)
+            self.assertIsInstance(d.abstract_dependency, ConcreteDependency)
 
     def test_inject_provides_correct_implementation(self):
-        d = Dependent()
-        with Environment(ConcreteComponent):
-            self.assertIsInstance(d.abstract_component, AbstractComponent)
-            self.assertIsInstance(d.abstract_component, ConcreteComponent)
-        with Environment(AlternativeComponent):
-            self.assertIsInstance(d.abstract_component, AbstractComponent)
-            self.assertIsInstance(d.abstract_component, AlternativeComponent)
+        with Environment(ConcreteDependency):
+            d = AbstractDependent()
+            self.assertIsInstance(d.abstract_dependency, AbstractDependency)
+            self.assertIsInstance(d.abstract_dependency, ConcreteDependency)
+        with Environment(AlternativeDependency):
+            d = AbstractDependent()
+            self.assertIsInstance(d.abstract_dependency, AbstractDependency)
+            self.assertIsInstance(d.abstract_dependency, AlternativeDependency)
 
     def test_injection_chaining(self):
         d = Dependent()
-        with Environment():
-            self.assertIsInstance(d.chain, Chain)
-            self.assertIsInstance(d.chain.some_component, SomeComponent)
-
-    def test_injected_is_always_same_instance(self):
-        with Environment():
-            d1 = Dependent()
-            self.assertIs(d1.some_component, d1.some_component)
+        self.assertIsInstance(d.chain, Chain)
+        self.assertIsInstance(d.chain.some_component, SomeDependency)
 
     def test_injected_are_different_instances(self):
         with Environment():
             d1 = Dependent()
             d2 = Dependent()
-            self.assertIsNot(d1.some_component, d2.some_component)
+            self.assertIsNot(d1.some_dependency, d2.some_dependency)
 
-    def test_lazy_named_dependency(self):
+    def test_named_dependency(self):
         with Environment(key='value'):
-            self.assertEqual(Dependent().value, 'value')
+            self.assertEqual(NamedDependent().key, 'value')
+
+    @Environment(ConcreteDependency)
+    def test_inheritance(self):
+        self.assertIsInstance(
+            SubDependent().abstract_dependency,
+            ConcreteDependency
+        )
+        self.assertIsInstance(
+            OverwriteDependent().abstract_dependency,
+            AlternativeDependency
+        )
+
+    def test_decorate_class_with_no_annotations(self):
+        class NoAnnotations:
+            pass
+        decorated = inject(NoAnnotations)
+        self.assertIs(decorated, NoAnnotations)
+
+    def test_decorate_class_with_no_dependency_annotations(self):
+        class NoDependencyAnnotations:
+            a: int
+        decorated = inject(NoDependencyAnnotations)
+        self.assertIs(decorated, NoDependencyAnnotations)
+
+    def test_decorate_nonclass_or_nonfunction(self):
+        result = inject(1)
+        self.assertEqual(result, 1)
+
+    @inject
+    def test_inject_function_dependency(self, dependency: SomeDependency):
+        self.assertIsInstance(dependency, SomeDependency)
+
+    def test_inject_function_with_non_dependency_annotations(self):
+        @inject
+        def f(a: int):
+            return a
+
+        result = f(1)
+        self.assertEqual(result, 1)

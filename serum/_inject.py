@@ -11,8 +11,8 @@ from ._injected_dependency import Dependency as InjectedDependency
 T = TypeVar('T')
 
 
-def __format_name(name):
-    return f'__{name}'
+def __format_name(cls, name):
+    return f'_{cls.__name__}__{name}'
 
 
 def __decorate_init(init):
@@ -23,6 +23,9 @@ def __decorate_init(init):
         for base in self.__class__.__bases__:
             if hasattr(base, '__dependencies__'):
                 for name, dependency in base.__dependencies__:
+                    if hasattr(self, name):
+                        # if self already has name, then it was overwritten
+                        continue
                     setattr(self, name, provide(dependency))
         return init(self, *args, **kwargs)
     return decorator
@@ -34,12 +37,12 @@ def _decorate_class(cls):
     dependencies = []
     for name, dependency in cls.__annotations__.items():
         if isinstance(dependency, Key):
-            formatted_name = __format_name(name)
+            formatted_name = __format_name(cls, name)
             key = Key(name=name, dependency_type=dependency.dependency_type)
             dependencies.append((formatted_name, key))
             setattr(cls, name, InjectedDependency(formatted_name))
         elif issubclass(dependency, Dependency):
-            formatted_name = __format_name(name)
+            formatted_name = __format_name(cls, name)
             dependencies.append((formatted_name, dependency))
             setattr(cls, name, InjectedDependency(formatted_name))
     if dependencies:
@@ -52,16 +55,15 @@ def _decorate_function(f):
     @wraps(f)
     def decorator(*args, **kwargs):
         dependency_args = {}
-        if hasattr(f, '__annotations__'):
-            for name, dependency in f.__annotations__.items():
-                if isinstance(dependency, Key):
-                    key = Key(
-                        name=name,
-                        dependency_type=dependency.dependency_type
-                    )
-                    dependency_args[name] = provide(key)
-                elif issubclass(dependency, Dependency):
-                    dependency_args[name] = provide(dependency)
+        for name, dependency in f.__annotations__.items():
+            if isinstance(dependency, Key):
+                key = Key(
+                    name=name,
+                    dependency_type=dependency.dependency_type
+                )
+                dependency_args[name] = provide(key)
+            elif issubclass(dependency, Dependency):
+                dependency_args[name] = provide(dependency)
         dependency_args.update(kwargs)
         return f(*args, **dependency_args)
     decorator.__is_inject__ = True
@@ -79,7 +81,7 @@ class Inject:
     # noinspection PyMethodMayBeStatic
     def name(self, of_type: Type[T] = object) -> Type[T]:
         key = Key(dependency_type=of_type)
-        return cast(type(of_type), key)
+        return cast(Type[T], key)
 
 
 inject = Inject()

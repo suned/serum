@@ -1,6 +1,5 @@
 import unittest
 from serum import mock, Dependency, inject, Environment
-from serum.exceptions import NoEnvironment
 
 
 class SomeComponent(Dependency):
@@ -13,9 +12,15 @@ class SomeCallableComponent(Dependency):
         return 'some value'
 
 
-class Depenedent:
-    some_component = inject(SomeComponent)
-    some_callable_component = inject(SomeCallableComponent)
+@inject
+class Dependent:
+    some_component: SomeComponent
+    some_callable_component: SomeCallableComponent
+
+
+@inject
+class NamedDependent:
+    key: inject.name()
 
 
 class MockTests(unittest.TestCase):
@@ -23,24 +28,20 @@ class MockTests(unittest.TestCase):
         with Environment():
             some_component_mock = mock(SomeComponent)
             some_component_mock.method.return_value = 'some other value'
-            d = Depenedent()
+            d = Dependent()
             self.assertIs(d.some_component, some_component_mock)
             self.assertEqual(d.some_component.method(), 'some other value')
 
     def test_mocks_are_reset_after_context_exit(self):
         with Environment():
             some_component_mock = mock(SomeComponent)
-            d = Depenedent()
+            d = Dependent()
             self.assertIs(some_component_mock, d.some_component)
 
         with Environment():
-            d = Depenedent()
+            d = Dependent()
             self.assertIsNot(some_component_mock, d.some_component)
             self.assertIsInstance(d.some_component, SomeComponent)
-
-    def test_cant_register_mocks_outside_environment(self):
-        with self.assertRaises(NoEnvironment):
-            mock(SomeComponent)
 
     def test_mock_is_specced(self):
         with Environment():
@@ -64,6 +65,6 @@ class MockTests(unittest.TestCase):
             mock_dependency.method.return_value = 'value'
             with self.assertRaises(AttributeError):
                 mock_dependency.no_such_method()
-            injected = inject('key')
+            injected = NamedDependent().key
             self.assertEqual(injected, mock_dependency)
             self.assertEqual(mock_dependency.method(), 'value')

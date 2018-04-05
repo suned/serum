@@ -1,5 +1,7 @@
 import unittest
-from serum import Dependency, abstractmethod, inject, Key
+from typing import Sequence
+
+from serum import Dependency, abstractmethod, inject
 from serum.exceptions import InvalidDependency
 
 
@@ -24,14 +26,14 @@ class DependencyTests(unittest.TestCase):
     def test_dependency_init_with_annotation(self):
         class SomeComponent(Dependency):
             @inject
-            def __init__(self, a: Key('test')):
+            def __init__(self, a: inject.name()):
                 pass
 
     def test_dependency_init_with_some_annotations(self):
         with self.assertRaises(InvalidDependency):
             class SomeComponent(Dependency):
                 @inject
-                def __init__(self, a, b: Key('test')):
+                def __init__(self, a, b: inject.name()):
                     pass
 
     def test_dependency_can_be_abstract(self):
@@ -39,6 +41,13 @@ class DependencyTests(unittest.TestCase):
             @abstractmethod
             def test(self):
                 pass
+
+        with self.assertRaises(TypeError):
+            AbstractComponent()
+
+    def test_dependency_can_be_generic(self):
+        class AbstractComponent(Dependency, Sequence[int]):
+            pass
 
         with self.assertRaises(TypeError):
             AbstractComponent()

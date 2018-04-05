@@ -1,9 +1,6 @@
 from typing import NamedTuple, Type, TypeVar
 
 
-T = TypeVar('T')
-
-
 class Key(NamedTuple):
-    dependency_type: Type[T]
+    dependency_type: type
     name: str = None

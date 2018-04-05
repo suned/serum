@@ -226,16 +226,8 @@ environment = Environment(Sub)
 def f():
     assert isinstance(NeedsSuper().instance, Sub)
 
-```
-You can only provide subtypes of `Dependency` with `Environment`.
-```python
-class NotADependency:
-    pass
-
-
-Environment(NotADependency)  # raises: InvalidDependency: Attempt to register type that is not a Dependency: <class 'C'> 
-```
-You can however provide named dependencies of any type using keyword arguments using [`inject.name`](#inject.name).
+``` 
+You can provide named dependencies of any type using keyword arguments using [`inject.name()`](#inject).
 ```python
 @inject
 class Database(Dependency):
@@ -266,160 +258,52 @@ with Environment():
     threading.Thread(target=worker_with_environment()).start()
 ```
 ## `inject`
-When used inside an `Environment`, `inject` eagerly returns the requested dependency.
-`inject` only accepts subtypes of `Component` and `str` as its argument.
-Calling `inject` with a `Component` subtype as its argument will provide an instance of that
-type (or a subtype depending on the environment).
+`inject` is used to decorate functions and classes in which you want to inject
+dependencies.
 ```python
-class Dependency(Dependency):
+class MyDependency(Dependency):
     pass
 
 @inject
-def f(dependency: Dependency):
-    assert isinstance(dependency, Dependency)
+def f(dependency: MyDependency):
+    assert isinstance(dependency, MyDependency)
 
 with Environment():
     f()
 ```
-Calling `inject` with a `str` argument will return the named value associated with
-that keyword argument in the current `Environment`. Note that type inference is
-impossible for this pattern, and you have to annotate the type of the injected
-dependency if you want PEP484 features to work.
+If you want to inject a named dependency given as a keyword argument to `Environment`,
+you can annotate an argument using `inject.name`.
 ```python
-with Environment(key='value'):
-    value: str = inject('key')
-    assert value == 'value'
+@inject
+def f(dependency: inject.name(of_type=str)):
+    assert dependency == 'a named dependency'
+
+with Environment(dependency='a named dependency'):
+    f()
 ```
-When used outside an `Environment`, `inject` returns a 
-[descriptor](https://docs.python.org/3/reference/datamodel.html#implementing-descriptors) 
-that can be used to lazily inject a dependency at a later time.
+The optional `of_type` argument is used to enable PEP484 type-hinting for tools
+that support it. `serum` does not prevent you from injecting a named dependency
+of another type, but will issue a warning if you do so.
+
+`inject` can also be used to decorate classes. 
 ```python
-class Dependency(Component):
-    pass
+@inject
+class SomeClass:
+    dependency: MyDependency 
+```
+This is roughly equivalent to:
+```python
+class SomeClass:
+    @inject
+    def __init__(self, dependency: MyDependency):
+        self.__dependency = dependency
     
-print(type(inject(Dependency)))  # outputs: LazyDependency
-
-class Dependent:
-    dependency = inject(Dependency)
-
-
-with Environment():
-    assert isinstance(Dependent().dependency, Dependency) 
-```
-Lazily injected `Component`s can't be accessed outside an `Environment` context:
-```python
-class Dependency(Component):
-    pass
-
-
-class Dependent:
-    dependency = inject(Dependency)
-
-
-Dependent().dependency  # raises NoEnvironment: Can't inject dependencies outside an environment 
-```
-Calling `inject` with anything else than a `Component` subtype or `str` is
-an error.
-```python
-class NotAComponent:
-    pass
-    
-
-class InvalidDependent:
-    dependency = inject(NotAComponent)  # raises: InvalidDependency: Attempt to inject type that is not a Component or str: <class 'C'>
-```
-Injected `Component` properties are immutable
-```python
-with Environment():
-    Dependent().dependency = 'mutate this'  # raises AttributeError: Can't set injected attribute
-```
-A lazily injected member of an instance will always refer to the same component 
-instance. Lazily injected members of different instances will refer to different
-component instances.
-```python
-with Environment():
-    instance1 = NeedsLog()
-    assert instance1.log is instance1.log
-    instance2 = NeedsLog()
-    assert instance2.log is not instance1.log
-```
-When lazily injected components are used in nested environments, the following
-rules apply:
-
-- Attributes injected in the outer environment refer to the same instances
-in the inner environment
-- Attributes injected in the inner environment are destroyed when the environment context
-closes
-```python
-with Environment():
-    outer = Dependent()
-    inner = Dependent()
-    outer_dependency = outer.dependency  # Accessing the lazy attribute instantiates the component
-    with Environment():
-        inner_dependency = inner.dependency
-        # Instances created in the outer environment are still available in the inner environment
-        assert outer.dependency is outer_dependency
-    # Since the inner environment context is closed, a new instance will be created
-    # in the outer environment
-    assert inner.dependency is not inner_dependency
-    assert outer.dependency is outer_dependency
-```
-Note that the eager version of `inject` makes it possible to write something like:
-```python
-class Dependent:
-    with Environment():
-        dependency = inject(Dependency)
-```
-Which is essentially equivalent to:
-```python
-class Dependent:
-    dependency = Dependency()
-```
-Or similarly
-```python
-with Environment():
-    def f(dependency=inject(Dependency)):
-        print(dependency)
-```
-In the above examples, `dependency` is assigned to eagerly, and will not change
-based on changing environments. This very much defeats the purpose of `inject`.
-The intended use case of eager `inject` is for use inside functions and methods that can
-be run in different environments.
-```python
-def f():
-    dependency = inject(Dependency)
-    print(type(dependency))
-
-class TestDependency(Dependency):
-    pass
-
-environment = Environment()
-test_environment = Environment(TestDependency)
-
-with environment:
-    f()  # outputs: Dependency
-
-with test_environment:
-    f()  # outputs: TestDependency
-```
-If you want to use `inject` to eagerly inject instance members in a class,
-do it inside `__init__`
-```python
-class Dependent:
-    def __init__(self):
-        self.dependency = inject(Dependency)
-```
-Note that this will restrict instances of `Dependent` to be instantiated
-inside environments.
-
-Similarly, if you want to use `inject` to assign to keyword arguments, wrap it in
-a `lambda`
-```python
-def f(dependency=lambda: inject(Dependency)):
-    print(dependency())
+    @property
+    def dependency(self) -> MyDependency:
+        return self.__dependency
 ```
 ## `Singleton`
-To always inject the same instance of a component in the same `Environment`, inherit from `Singleton`.
+To always inject the same instance of a dependency in the same `Environment`, inherit from `Singleton`.
 ```python
 from serum import Singleton
 
@@ -428,27 +312,27 @@ class ExpensiveObject(Singleton):
     pass
 
 
+@inject
 class NeedsExpensiveObject:
-    expensive_instance = inject(ExpensiveObject)
+    expensive_instance: ExpensiveObject
 
+
+instance1 = NeedsExpensiveObject()
+instance2 = NeedsExpensiveObject()
+assert instance1.expensive_instance is instance2.expensive_instance
+```
+Note that `Singleton` dependencies injected in different environments 
+will not refer to the same instance.
+```python
 
 with Environment():
     instance1 = NeedsExpensiveObject()
-    instance2 = NeedsExpensiveObject()
-    assert instance1.expensive_instance is instance2.expensive_instance
-```
-Note that even `Singleton` objects are destroyed when an `Environment`
-context is closed
-```python
-needs_expensive_object = NeedsExpensiveObject()
-with Environment():
-    expensive_instance = needs_expensive_object.expensive_instance
 
 with Environment():
-    assert expensive_instance is not needs_expensive_object.expensive_instance
+    assert instance1.expensive_instance is not NeedsExpensiveObject().expensive_instance
 ```
 ## `immutable`
-If you want to define immutable members (constants) in components (or any other classes), 
+If you want to define immutable members (constants), 
 `serum` provides the `immutable` utility
 that also supports type inference with PEP 484 tools. 
 ```python
@@ -471,18 +355,18 @@ when the environment context is closed.
 from serum import mock
 
 
-class Dependency(Component):
+class SomeDependency(Dependency):
     def method(self):
         return 'some value' 
 
-
+@inject
 class Dependent:
-    dependency = inject(Dependency)
+    dependency: SomeDependency
 
 
 environment = Environment()
 with environment:
-    mock_dependency = mock(Dependency)
+    mock_dependency = mock(SomeDependency)
     mock_dependency.method.return_value = 'some mocked value'
     instance = Dependent()
     assert instance.dependency is mock_dependency
@@ -491,16 +375,16 @@ with environment:
 with environment:
     instance = Dependent()
     assert instance.dependency is not mock_dependency
-    assert isinstance(instance.dependency, Dependency)
+    assert isinstance(instance.dependency, SomeDependency)
 
-mock(Dependency)  # raises: NoEnvironment: Can't register mock outside environment
+mock(SomeDependency)  # raises: NoEnvironment: Can't register mock outside environment
 ```
 `mock` uses its argument to spec the injected instance of `MagicMock`. This means
 that attempting to call methods that are not defined by the mocked `Component`
 leads to an error
 ```python
 with environment:
-    mock_dependency = mock(Dependency)
+    mock_dependency = mock(SomeDependency)
     mock_dependency.no_method()  # raises: AttributeError: Mock object has no attribute 'no method'
 ```
 Note that `mock` will only mock requests of the
@@ -510,7 +394,7 @@ more or less specific types
 from unittest.mock import MagicMock
 
 
-class Super(Component):
+class Super(Dependency):
     pass
 
 
@@ -522,16 +406,19 @@ class SubSub(Sub):
     pass
 
 
+@inject
 class NeedsSuper:
-    injected = inject(Super)
+    injected: Super
 
 
+@inject
 class NeedsSub:
-    injected = inject(Sub)
+    injected: Sub
 
 
+@inject
 class NeedsSubSub:
-    injected = inject(SubSub)
+    injected: SubSub
 
 
 with Environment():
@@ -548,22 +435,28 @@ with Environment():
 with values of an environment variable.
 ```python
 # my_script.py
-from serum import match, Component, abstractmethod, Environment, inject
+from serum import match, Dependency, abstractmethod, Environment, inject
 
-class Dependency(Component):
+
+class BaseDependency(Dependency):
     @abstractmethod
     def method(self):
         pass
 
 
-class ProductionDependency(Dependency):
+class ProductionDependency(BaseDependency):
     def method(self):
         print('Production!')
 
 
-class TestDependency(Dependency):
+class TestDependency(BaseDependency):
     def method(self):
         print('Test!')
+
+
+@inject
+def f(dependency: BaseDependency):
+    dependency.method()
 
 
 environment = match(
@@ -572,9 +465,9 @@ environment = match(
     PROD=Environment(ProductionDependency),
     TEST=Environment(TestDependency)
 )
+
 with environment:
-    inject(Dependency).method()
-      
+    f()
 ```
 ```
 > python my_script.py

@@ -18,18 +18,15 @@ def _check_init(dct):
             '__init__ method of Dependency subclasses that takes parameters'
             ' must be decorated with inject'
         )
-    not_all_parameters_are_annotated_error = InvalidDependency(
-            '__init__ method of Dependency subclasses that takes parameters'
-            ' must have all parameters except "self" annotated with Dependency'
-            ' types or Key'
-        )
-    if not hasattr(init, '__annotations__'):
-        raise not_all_parameters_are_annotated_error
     dependency_annotations = [a for a in init.__annotations__.values()
                               if isinstance(a, Key) or issubclass(a, Dependency)]
     # -1 because of self
     if len(signature.parameters) - 1 != len(dependency_annotations):
-        raise not_all_parameters_are_annotated_error
+        raise InvalidDependency(
+            '__init__ method of Dependency subclasses that takes parameters'
+            ' must have all parameters except "self" annotated with Dependency'
+            ' types or Key'
+        )
 
 
 class _DependencyMeta(GenericMeta):
