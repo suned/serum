@@ -4,6 +4,7 @@ from ._dependency import *
 from ._environment import *
 from ._functions import *
 from ._inject import *
+from ._named_dependency import *
 
 
 def load_ipython_extension(_):

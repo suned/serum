@@ -1,8 +1,9 @@
 import inspect
-from typing import Type, TypeVar, cast
+from typing import TypeVar
 
 from functools import wraps
 
+from ._named_dependency import is_named_dependency, get_dependency_type
 from ._key import Key
 from ._environment import provide
 from ._dependency import Dependency
@@ -24,21 +25,24 @@ def __decorate_init(init):
             if hasattr(base, '__dependencies__'):
                 for name, dependency in base.__dependencies__:
                     if hasattr(self, name):
-                        # if self already has name, then it was overwritten
+                        # if 'self' already has 'name', then it was overwritten
+                        # and should not be reset with a type from
+                        # a base class
                         continue
                     setattr(self, name, provide(dependency))
         return init(self, *args, **kwargs)
     return decorator
 
 
-def _decorate_class(cls):
+def __decorate_class(cls):
     if not hasattr(cls, '__annotations__'):
         return cls
     dependencies = []
     for name, dependency in cls.__annotations__.items():
-        if isinstance(dependency, Key):
+        if is_named_dependency(dependency):
             formatted_name = __format_name(cls, name)
-            key = Key(name=name, dependency_type=dependency.dependency_type)
+            dependency_type = get_dependency_type(dependency)
+            key = Key(name=name, dependency_type=dependency_type)
             dependencies.append((formatted_name, key))
             setattr(cls, name, InjectedDependency(formatted_name))
         elif issubclass(dependency, Dependency):
@@ -51,15 +55,16 @@ def _decorate_class(cls):
     return cls
 
 
-def _decorate_function(f):
+def __decorate_function(f):
     @wraps(f)
     def decorator(*args, **kwargs):
         dependency_args = {}
         for name, dependency in f.__annotations__.items():
-            if isinstance(dependency, Key):
+            if is_named_dependency(dependency):
+                dependency_type = get_dependency_type(dependency)
                 key = Key(
-                    name=name,
-                    dependency_type=dependency.dependency_type
+                    dependency_type=dependency_type,
+                    name=name
                 )
                 dependency_args[name] = provide(key)
             elif issubclass(dependency, Dependency):
@@ -70,21 +75,12 @@ def _decorate_function(f):
     return decorator
 
 
-class Inject:
-    def __call__(self, value):
+def inject(value):
         if inspect.isclass(value):
-            return _decorate_class(value)
+            return __decorate_class(value)
         if inspect.isfunction(value) or inspect.ismethod(value):
-            return _decorate_function(value)
+            return __decorate_function(value)
         return value
-
-    # noinspection PyMethodMayBeStatic
-    def name(self, of_type: Type[T] = object) -> Type[T]:
-        key = Key(dependency_type=of_type)
-        return cast(Type[T], key)
-
-
-inject = Inject()
 
 
 __all__ = ['inject']

@@ -105,7 +105,7 @@ is limited such that:
 - If `__init__` takes more than the `self` parameter, it must be
 decorated with `inject`.
 - All parameters to `__init__` except `self` must be annotated
-with other `Dependency` subclasses or `inject.name` (see [`inject`](#inject)).
+with other `Dependency` subclasses or `Name` (see [`inject`](#inject)).
 ```python
 @inject
 class ValidDependency(Dependency):  # OK!
@@ -227,11 +227,13 @@ def f():
     assert isinstance(NeedsSuper().instance, Sub)
 
 ``` 
-You can provide named dependencies of any type using keyword arguments using [`inject.name()`](#inject).
+You can provide named dependencies of any type using keyword arguments using [`Name`](#inject).
 ```python
+from serum import Name
+
 @inject
 class Database(Dependency):
-    connection_string: inject.name()
+    connection_string: Name
     
 
 connection_string = 'mysql+pymysql://root:my_pass@127.0.0.1:3333/my_db'
@@ -261,6 +263,9 @@ with Environment():
 `inject` is used to decorate functions and classes in which you want to inject
 dependencies.
 ```python
+from serum import inject, Dependency, Environment
+
+
 class MyDependency(Dependency):
     pass
 
@@ -272,18 +277,35 @@ with Environment():
     f()
 ```
 If you want to inject a named dependency given as a keyword argument to `Environment`,
-you can annotate an argument using `inject.name`.
+you can annotate an argument using `Name`.
 ```python
+from serum import Name
+
 @inject
-def f(dependency: inject.name(of_type=str)):
+def f(dependency: Name[str]):
     assert dependency == 'a named dependency'
 
 with Environment(dependency='a named dependency'):
     f()
 ```
-The optional `of_type` argument is used to enable PEP484 type-hinting for tools
+The optional `str` type argument is used to enable PEP484 type-hinting for tools
 that support it. `serum` does not prevent you from injecting a named dependency
 of another type, but will issue a warning if you do so.
+
+`Name` relies on generic type aliases which is a documented
+feature of the python `typing` module. This feature is unfortunately
+not currently supported by `mypy` or the PyCharm type-checker.
+As a work-around, you can annotate named dependencies with
+`Union[NamedDependency, ...]`.
+```python
+from serum import NamedDependency
+from typing import Union
+
+
+@inject
+def f(dependency: Union[NamedDependency, str]):
+    assert dependency == 'a named dependency'
+```
 
 `inject` can also be used to decorate classes. 
 ```python

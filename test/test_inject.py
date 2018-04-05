@@ -1,5 +1,9 @@
 import unittest
-from serum import inject, Dependency, Environment, abstractmethod
+
+from typing import Union
+
+from serum import inject, Dependency, Environment, abstractmethod, Name, \
+    NamedDependency
 from serum._injected_dependency import Dependency as InjectedDependency
 from serum.exceptions import UnregisteredDependency
 
@@ -51,7 +55,7 @@ class OverwriteDependent(AbstractDependent):
 
 @inject
 class NamedDependent:
-    key: inject.name()
+    key: Name[str]
 
 
 class InjectTests(unittest.TestCase):
@@ -67,7 +71,7 @@ class InjectTests(unittest.TestCase):
 
     @Environment(key='value')
     @inject
-    def test_inject_string(self, key: inject.name()):
+    def test_inject_string(self, key: Name[str]):
         self.assertEqual(key, 'value')
 
     def test_static_dependency(self):
@@ -147,3 +151,8 @@ class InjectTests(unittest.TestCase):
 
         result = f(1)
         self.assertEqual(result, 1)
+
+    @Environment(key='value')
+    @inject
+    def test_named_dependency_workaround(self, key: Union[NamedDependency, str]):
+        self.assertEqual(key, 'value')

@@ -1,5 +1,5 @@
 import unittest
-from serum import mock, Dependency, inject, Environment
+from serum import mock, Dependency, inject, Environment, Name
 
 
 class SomeComponent(Dependency):
@@ -20,7 +20,7 @@ class Dependent:
 
 @inject
 class NamedDependent:
-    key: inject.name()
+    key: Name
 
 
 class MockTests(unittest.TestCase):

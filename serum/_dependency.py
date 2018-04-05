@@ -2,8 +2,9 @@ import inspect
 
 from typing import GenericMeta
 
-from serum._key import Key
+from ._key import Key
 from .exceptions import InvalidDependency
+from ._named_dependency import is_named_dependency
 
 
 def _check_init(dct):
@@ -19,7 +20,8 @@ def _check_init(dct):
             ' must be decorated with inject'
         )
     dependency_annotations = [a for a in init.__annotations__.values()
-                              if isinstance(a, Key) or issubclass(a, Dependency)]
+                              if is_named_dependency(a)
+                              or issubclass(a, Dependency)]
     # -1 because of self
     if len(signature.parameters) - 1 != len(dependency_annotations):
         raise InvalidDependency(

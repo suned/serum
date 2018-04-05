@@ -2,7 +2,7 @@ import unittest
 
 import warnings
 
-from serum import Environment, Dependency, abstractmethod, Singleton, inject
+from serum import Environment, Dependency, abstractmethod, Singleton, inject, Name
 from serum.exceptions import (
     UnregisteredDependency,
     AmbiguousDependencies,
@@ -188,7 +188,7 @@ class EnvironmentTests(unittest.TestCase):
     @Environment(key='value')
     def test_warning_issued_when_injecting_named_dependency_with_wrong_type(self):
         @inject
-        def f(key: inject.name(of_type=int)):
+        def f(key: Name[int]):
             pass
 
         with warnings.catch_warnings(record=True) as w:
