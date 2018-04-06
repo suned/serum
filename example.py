@@ -165,3 +165,9 @@ if __name__ == '__main__':
     with production_environment():
         app = ToDoApplication()
         app.run()
+
+from typing import Union, List
+
+a: Union[str, List[int]]
+v = a[2]
+

@@ -156,3 +156,21 @@ class InjectTests(unittest.TestCase):
     @inject
     def test_named_dependency_workaround(self, key: Union[NamedDependency, str]):
         self.assertEqual(key, 'value')
+
+    def test_overriding_injected_parameters(self):
+        @inject
+        def f(first: Name, second: Name):
+            return first, second
+
+        a, b = f('a', 'b')
+        self.assertEqual(a, 'a')
+        self.assertEqual(b, 'b')
+
+    def test_decorate_function_with_no_injected_params(self):
+        @inject
+        def f(value: int):
+            return value
+
+        with self.assertRaises(TypeError):
+            f()
+

@@ -276,6 +276,15 @@ def f(dependency: MyDependency):
 with Environment():
     f()
 ```
+Functions decorated with `inject` can be called as normal functions. `serum` will
+not attempt to inject arguments given at call time.
+```python
+@inject
+def f(dependency: MyDependency):
+    print(dependency)
+
+f('Overridden dependency')  #  outputs: Overridden dependency 
+```
 If you want to inject a named dependency given as a keyword argument to `Environment`,
 you can annotate an argument using `Name`.
 ```python
@@ -371,7 +380,7 @@ i.value = 2  # raises AttributeError: Can't set property
 ## `mock`
 `serum` has support for injecting `MagicMock`s from the builtin
 `unittest.mock` library in unittests using the `mock` utility
-function. `mock` is only usable inside an an environment context. Mocks are reset
+function. Mocks are reset
 when the environment context is closed.
 ```python
 from serum import mock
@@ -398,8 +407,6 @@ with environment:
     instance = Dependent()
     assert instance.dependency is not mock_dependency
     assert isinstance(instance.dependency, SomeDependency)
-
-mock(SomeDependency)  # raises: NoEnvironment: Can't register mock outside environment
 ```
 `mock` uses its argument to spec the injected instance of `MagicMock`. This means
 that attempting to call methods that are not defined by the mocked `Component`

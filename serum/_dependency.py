@@ -2,7 +2,6 @@ import inspect
 
 from typing import GenericMeta
 
-from ._key import Key
 from .exceptions import InvalidDependency
 from ._named_dependency import is_named_dependency
 

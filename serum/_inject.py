@@ -56,10 +56,16 @@ def __decorate_class(cls):
 
 
 def __decorate_function(f):
+    signature = inspect.signature(f)
+    names = signature.parameters.keys()
+
     @wraps(f)
     def decorator(*args, **kwargs):
-        dependency_args = {}
+        positional_names = {name for name, arg in zip(names, args)}
+        dependency_args = kwargs
         for name, dependency in f.__annotations__.items():
+            if name in dependency_args or name in positional_names:
+                continue
             if is_named_dependency(dependency):
                 dependency_type = get_dependency_type(dependency)
                 key = Key(
@@ -69,7 +75,6 @@ def __decorate_function(f):
                 dependency_args[name] = provide(key)
             elif issubclass(dependency, Dependency):
                 dependency_args[name] = provide(dependency)
-        dependency_args.update(kwargs)
         return f(*args, **dependency_args)
     decorator.__is_inject__ = True
     return decorator
