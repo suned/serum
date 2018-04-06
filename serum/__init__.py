@@ -9,7 +9,7 @@ from ._named_dependency import *
 
 def load_ipython_extension(_):
     try:
-        from ipython_environment import environment
+        from ipython_environment import environment  # type: ignore
         environment.__enter__()
     except ModuleNotFoundError:
         pass
@@ -17,7 +17,7 @@ def load_ipython_extension(_):
 
 def unload_ipython_extension(_):
     try:
-        from ipython_environment import environment
+        from ipython_environment import environment  #type: ignore
         environment.__exit__(None, None, None)
     except ModuleNotFoundError:
         pass
