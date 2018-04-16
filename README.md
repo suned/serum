@@ -14,18 +14,17 @@
 ```
 # Quickstart
 ```python
-from serum import inject, Dependency, Environment, abstractmethod
+from serum import inject, dependency, Environment
 
 
-# Dependency subclasses are injectable types. They can be abstract... 
-class AbstractLog(Dependency):
-    @abstractmethod
+# Classes decorated with 'dependency' are injectable types.
+@dependency 
+class Log:
     def info(self, message: str):
-        pass
+        raise NotImplementedError()
 
 
-# ...And concrete
-class SimpleLog(AbstractLog):
+class SimpleLog(Log):
     def info(self, message: str):
         print(message)
 
@@ -37,107 +36,176 @@ class StubLog(SimpleLog):
 
 @inject  # Dependencies are injected using a class decorator...
 class NeedsLog:
-    log: AbstractLog  # ...and class level annotations...
+    log: Log  # ...and class level annotations...
 
 
 class NeedsSimpleLog:
-    @inject  # ...or using function argument annotations and a function decorator
+    @inject  # ...or using a function decorator
     def __init__(self, log: SimpleLog):
         self.log = log 
 
 
+@inject
+class NeedsNamedDependency:
+    named_dependency: str  # class level annotations annotated with a type that is not
+                           # decorated with 'dependency' will be treated as a named
+                           # dependency
+                           
+
 # Environments provide dependencies
-with Environment(SimpleLog):
+with Environment(SimpleLog, named_dependency='this name is injected!'):
     assert isinstance(NeedsLog().log, SimpleLog)
-
-with Environment():
-    # Abstract dependencies can only be injected in environments
-    # that provide concrete implementations.
-    NeedsLog().log.info('Hello serum!')  # raises: UnregisteredDependency
-    # Concrete dependencies can be injected even in an
-    # empty environment
-    NeedsSimpleLog().log.info('Hello serum!') # outputs: Hello serum!
-
-
-# The default Environment is empty
-assert isinstance(NeedsSimpleLog().log, SimpleLog)
-
+    assert NeedsNamedDependency().named_dependency == 'this name is injected!'
+    
 
 # Environments will always provide the most specific 
-# subtype of the requested type. This allows you to change which concrete
+# subtype of the requested type. This allows you to change which
 # dependencies are injected.
-with Environment(SimpleLog, StubLog):
+with Environment(StubLog):
     NeedsLog().log.info('Hello serum!')  # doesn't output anything
     NeedsSimpleLog().log.info('Hello serum!')  # doesn't output anything
 ```
 # Documentation
-- [`Dependency`](#dependency)
-- [`Environment`](#environment)
 - [`inject`](#inject)
-- [`Singleton`](#singleton)
-- [`immutable`](#immutable)
+- [`Environment`](#environment)
+- [`dependency`](#dependency)
+- [`singleton`](#singleton)
 - [`mock`](#mock)
 - [`match`](#match)
-- [PEP 484](#pep-484)
 - [IPython Integration](#ipython-integration)
 
-## `Dependency`
-All subclasses of `Dependency` can be injected.
+## `inject`
+`inject` is used to decorate functions and classes in which you want to inject
+dependencies.
 ```python
-from serum import Dependency, Environment, inject
+from serum import inject, dependency, Environment
 
+@dependency
+class MyDependency:
+    pass
 
-class Log(Dependency):
+@inject
+def f(dependency: MyDependency):
+    assert isinstance(dependency, MyDependency)
+
+f()
+```
+Functions decorated with `inject` can be called as normal functions. `serum` will
+not attempt to inject arguments given at call time.
+```python
+@inject
+def f(dependency: MyDependency):
+    print(dependency)
+
+f('Overridden dependency')  #  outputs: Overridden dependency 
+```
+`inject` will instantiate classes decorated with [`dependency`](#dependency). In
+this way, your entire dependency graph can be specified using just `inject` and 
+`dependency`.
+
+Instances of simple types and objects you want to instantiate yourself can be
+injected using keyword arguments to [`Environment`](#environment).
+```python
+@inject
+def f(dependency: str):
+    assert dependency == 'a named dependency'
+
+with Environment(dependency='a named dependency'):
+    f()
+```
+`inject` can also be used to decorate classes. 
+```python
+@inject
+class SomeClass:
+    dependency: MyDependency 
+```
+This is roughly equivalent to:
+```python
+class SomeClass:
+    @inject
+    def __init__(self, dependency: MyDependency):
+        self.__dependency = dependency
+    
+    @property
+    def dependency(self) -> MyDependency:
+        return self.__dependency
+```
+## `dependency`
+Classes decorated with `dependency` can be instantiated and injected
+by `serum`.
+```python
+from serum import dependency, inject
+
+@dependency
+class Log:
     def info(self, message):
         print(message)
+
 
 @inject
 class NeedsLog:
     log: Log
 
 
-
 assert isinstance(NeedsLog().log, Log)
 ```
-`serum` relies on being able to inject all dependencies for a `Dependency`
-subclass recursively. To achieve this, the `__init__` method of `Dependency` subclasses
-is limited such that: 
-- If `__init__` takes more than the `self` parameter, it must be
-decorated with `inject`.
-- All parameters to `__init__` except `self` must be annotated
-with other `Dependency` subclasses or `Name` (see [`inject`](#inject)).
+`serum` relies on being able to inject all dependencies for `dependency` decorated classes 
+recursively. To achieve this, `serum` assumes that the `__init__` method 
+of `dependency` decorated classes can be called without any arguments.
+This means that all arguments to `__init__` of `dependency` decorated classes must be injected using `inject`.
 ```python
+@dependency
+class SomeDependency:
+    def method(self):
+        pass
+
+
 @inject
-class ValidDependency(Dependency):  # OK!
+@dependency
+class ValidDependency:  # OK!
     some_dependency: SomeDependency
 
     def __init__(self):
-        self.value = self.some_dependency.method()
+        ...
 
-class AlsoValidDependency(Dependency):  # Also OK!
+
+@dependency
+class AlsoValidDependency:  # Also OK!
     @inject
     def __init__(self, some_dependency: SomeDependency):
-        pass
+        ...
 
 
-class InvalidDependency(Dependency):  # raises: InvalidDependency: __init__ method of Dependency subclasses that takes parameters must be decorated with inject
+@dependency
+class InvalidDependency:
     def __init__(self, a):
-        pass
+        ...
 
-class AlsoInvalidDependency(Dependency):  # raises: InvalidDependency: __init__ method of Dependency subclasses that takes parameters must have all parameters except "self" annotated with Dependency types or Key
-    @inject
-    def __init__(self, a):
-        pass
+@inject
+def f(dependency: InvalidDependency):
+    ...
+
+f()  
+# raises:
+# TypeError: __init__() missing 1 required positional argument: 'a'
+
+# The above exception was the direct cause of the following exception:
+
+# InjectionError                            Traceback (most recent call last)
+# ...
+# InjectionError: Could not instantiate dependency <class 'InvalidDependency'> 
+# when injecting argument "dependency" in <function f at 0x10a074ea0>.
 ```
 
-Note that circular dependencies preventing `Dependency` instantiation leads to
-an error.
+Note that circular dependencies preventing instantiation of `dependency` decorated
+classes leads to an error.
 ```python
-class AbstractA(Dependency):
+@dependency
+class AbstractA:
     pass
 
-
-class AbstractB(Dependency):
+@dependency
+class AbstractB:
     pass
 
 
@@ -160,41 +228,12 @@ class Dependent:
 with Environment(A, B):
     Dependent()  # raises: CircularDependency: Circular dependency encountered while injecting <class 'AbstractA'> in <B object at 0x1061e3898>
 ```
-`Dependency` subclasses can be abstract. Abstract dependencies can only be injected in an
-`Environment` that provides a concrete implementation. For convenience you can import
-`abstractmethod`, `abstractclassmethod` or `abstractclassmethod` from `serum`,
-but they simply refer to the decorators from the `abc` module 
-in the standard library.
-```python
-from serum import abstractmethod
-
-
-class AbstractLog(Dependency):
-    @abstractmethod
-    def info(self, message):
-        pass
-        
-@inject
-class NeedsLog:
-    log: AbstractLog
-
-
-NeedsLog()  # raises UnregisteredDependency: No concrete implementation of <class 'AbstractLog'> found
-
-
-class ConcreteLog(AbstractLog):
-    def info(self, message):
-        print(message)
-
-
-with Environment(ConcreteLog):
-    NeedsLog()  # Ok!
-```
 ## `Environment`
 `Environment`s provide implementations of dependencies. An `Environment` will always provide the most
 specific subtype of the requested type (in Method Resolution Order).
 ```python
-class Super(Dependency):
+@dependency
+class Super:
     pass
 
 
@@ -227,13 +266,11 @@ def f():
     assert isinstance(NeedsSuper().instance, Sub)
 
 ``` 
-You can provide named dependencies of any type using keyword arguments using [`Name`](#inject).
+You can provide named dependencies of any type using keyword arguments.
 ```python
-from serum import Name
-
 @inject
-class Database(Dependency):
-    connection_string: Name
+class Database:
+    connection_string: str
     
 
 connection_string = 'mysql+pymysql://root:my_pass@127.0.0.1:3333/my_db'
@@ -259,87 +296,15 @@ with Environment():
     threading.Thread(target=worker_without_environment()).start()
     threading.Thread(target=worker_with_environment()).start()
 ```
-## `inject`
-`inject` is used to decorate functions and classes in which you want to inject
-dependencies.
-```python
-from serum import inject, Dependency, Environment
 
-
-class MyDependency(Dependency):
-    pass
-
-@inject
-def f(dependency: MyDependency):
-    assert isinstance(dependency, MyDependency)
-
-with Environment():
-    f()
-```
-Functions decorated with `inject` can be called as normal functions. `serum` will
-not attempt to inject arguments given at call time.
-```python
-@inject
-def f(dependency: MyDependency):
-    print(dependency)
-
-f('Overridden dependency')  #  outputs: Overridden dependency 
-```
-If you want to inject a named dependency given as a keyword argument to `Environment`,
-you can annotate an argument using `Name`.
-```python
-from serum import Name
-
-@inject
-def f(dependency: Name[str]):
-    assert dependency == 'a named dependency'
-
-with Environment(dependency='a named dependency'):
-    f()
-```
-The optional `str` type argument is used to enable PEP484 type-hinting for tools
-that support it. `serum` does not prevent you from injecting a named dependency
-of another type, but will issue a warning if you do so.
-
-`Name` relies on generic type aliases which is a documented
-feature of the python `typing` module. This feature is unfortunately
-not currently supported by `mypy` or the PyCharm type-checker.
-As a work-around, you can annotate named dependencies with
-`Union[NamedDependency, ...]`.
-```python
-from serum import NamedDependency
-from typing import Union
-
-
-@inject
-def f(dependency: Union[NamedDependency, str]):
-    assert dependency == 'a named dependency'
-```
-
-`inject` can also be used to decorate classes. 
-```python
-@inject
-class SomeClass:
-    dependency: MyDependency 
-```
-This is roughly equivalent to:
-```python
-class SomeClass:
-    @inject
-    def __init__(self, dependency: MyDependency):
-        self.__dependency = dependency
-    
-    @property
-    def dependency(self) -> MyDependency:
-        return self.__dependency
-```
-## `Singleton`
+## `singleton`
 To always inject the same instance of a dependency in the same `Environment`, inherit from `Singleton`.
 ```python
-from serum import Singleton
+from serum import singleton
 
 
-class ExpensiveObject(Singleton):
+@singleton
+class ExpensiveObject:
     pass
 
 
@@ -362,21 +327,6 @@ with Environment():
 with Environment():
     assert instance1.expensive_instance is not NeedsExpensiveObject().expensive_instance
 ```
-## `immutable`
-If you want to define immutable members (constants), 
-`serum` provides the `immutable` utility
-that also supports type inference with PEP 484 tools. 
-```python
-from serum import immutable
-
-
-class Immutable:
-    value = immutable(1)
-
-
-i = Immutable()
-i.value = 2  # raises AttributeError: Can't set property
-```
 ## `mock`
 `serum` has support for injecting `MagicMock`s from the builtin
 `unittest.mock` library in unittests using the `mock` utility
@@ -385,8 +335,8 @@ when the environment context is closed.
 ```python
 from serum import mock
 
-
-class SomeDependency(Dependency):
+@dependency
+class SomeDependency:
     def method(self):
         return 'some value' 
 
@@ -422,8 +372,8 @@ more or less specific types
 ```python
 from unittest.mock import MagicMock
 
-
-class Super(Dependency):
+@dependency
+class Super:
     pass
 
 
@@ -464,13 +414,12 @@ with Environment():
 with values of an environment variable.
 ```python
 # my_script.py
-from serum import match, Dependency, abstractmethod, Environment, inject
+from serum import match, dependency, Environment, inject
 
-
-class BaseDependency(Dependency):
-    @abstractmethod
+@dependency
+class BaseDependency:
     def method(self):
-        pass
+        raise NotImplementedError()
 
 
 class ProductionDependency(BaseDependency):
@@ -510,11 +459,6 @@ Production!
 > MY_SCRIPT_ENV=TEST python my_script.py
 Test!
 ```
-## PEP 484
-`serum` is designed for type inference with PEP 484 tools (work in progress). 
-This feature is currently only supported for the PyCharm type checker.
-
-![type inference in PyCharm](https://i.imgur.com/8fvvAQ2.png)
 ## IPython Integration
 It can be slightly annoying to import some `Environment` and start it as a
 context manager in the beginning of every IPython session. 

@@ -3,10 +3,10 @@ from typing import TypeVar
 
 from functools import wraps
 
-from ._named_dependency import is_named_dependency, get_dependency_type
+from serum._dependency_configuration import DependencyConfiguration
+from serum.exceptions import InjectionError
 from ._key import Key
-from ._environment import provide
-from ._dependency import Dependency
+from ._environment import provide, current_env
 from ._injected_dependency import Dependency as InjectedDependency
 
 T = TypeVar('T')
@@ -16,46 +16,81 @@ def __format_name(cls, name):
     return f'_{cls.__name__}__{name}'
 
 
+def __is_dependency_decorated(dependency):
+    is_dependency = hasattr(dependency, '__is_dependency__')
+    return is_dependency
+
+
+def __set_dependency(configuration: DependencyConfiguration, kwargs, name):
+    if configuration.name in kwargs:
+        setattr(configuration.owner, name, kwargs[configuration.name])
+        del kwargs[configuration.name]
+    else:
+        try:
+            instance = provide(configuration)
+        except Exception as e:
+            instance = e
+        try:
+            setattr(configuration.owner, name, instance)
+        except Exception as e:
+            raise InjectionError(
+                f'Could not set attribute {configuration.name} on '
+                f'{configuration.owner}'
+            ) from e
+
+
 def __decorate_init(init):
     @wraps(init)
     def decorator(self, *args, **kwargs):
-        for name, dependency in self.__dependencies__:
-            setattr(self, name, provide(dependency))
+        for annotated_name, name, dependency in self.__dependencies__:
+            configuration = DependencyConfiguration(
+                dependency=dependency,
+                name=annotated_name,
+                owner=self
+            )
+            __set_dependency(configuration, kwargs, name)
         for base in self.__class__.__bases__:
             if hasattr(base, '__dependencies__'):
-                for name, dependency in base.__dependencies__:
+                for annotated_name, name, dependency in base.__dependencies__:
                     if hasattr(self, name):
                         # if 'self' already has 'name', then it was overwritten
                         # and should not be reset with a type from
                         # a base class
                         continue
-                    setattr(self, name, provide(dependency))
+                    configuration = DependencyConfiguration(
+                        dependency=dependency,
+                        name=annotated_name,
+                        owner=self
+                    )
+                    __set_dependency(
+                        configuration,
+                        kwargs,
+                        name,
+                    )
         return init(self, *args, **kwargs)
     return decorator
 
 
-def __decorate_class(cls):
+def _decorate_class(cls):
     if not hasattr(cls, '__annotations__'):
         return cls
     dependencies = []
     for name, dependency in cls.__annotations__.items():
-        if is_named_dependency(dependency):
+        if __is_dependency_decorated(dependency):
             formatted_name = __format_name(cls, name)
-            dependency_type = get_dependency_type(dependency)
-            key = Key(name=name, dependency_type=dependency_type)
-            dependencies.append((formatted_name, key))
+            dependencies.append((name, formatted_name, dependency))
             setattr(cls, name, InjectedDependency(formatted_name))
-        elif issubclass(dependency, Dependency):
+        else:
             formatted_name = __format_name(cls, name)
-            dependencies.append((formatted_name, dependency))
+            key = Key(name=name, dependency_type=dependency)
+            dependencies.append((name, formatted_name, key))
             setattr(cls, name, InjectedDependency(formatted_name))
-    if dependencies:
-        cls.__dependencies__ = dependencies
-        cls.__init__ = __decorate_init(cls.__init__)
+    cls.__dependencies__ = dependencies
+    cls.__init__ = __decorate_init(cls.__init__)
     return cls
 
 
-def __decorate_function(f):
+def _decorate_function(f):
     signature = inspect.signature(f)
     names = signature.parameters.keys()
 
@@ -66,26 +101,49 @@ def __decorate_function(f):
         for name, dependency in f.__annotations__.items():
             if name in dependency_args or name in positional_names:
                 continue
-            if is_named_dependency(dependency):
-                dependency_type = get_dependency_type(dependency)
+            if __is_dependency_decorated(dependency):
+                configuration = DependencyConfiguration(
+                    dependency=dependency,
+                    name=name,
+                    owner=f
+                )
+                dependency_args[name] = provide(configuration)
+            elif name in current_env():
                 key = Key(
-                    dependency_type=dependency_type,
+                    dependency_type=dependency,
                     name=name
                 )
-                dependency_args[name] = provide(key)
-            elif issubclass(dependency, Dependency):
-                dependency_args[name] = provide(dependency)
+                configuration = DependencyConfiguration(
+                    dependency=key,
+                    name=name,
+                    owner=f
+                )
+                dependency_args[name] = provide(configuration)
+        for name in names:
+            if (name in current_env()
+                    and name not in dependency_args
+                    and name not in positional_names):
+                key = Key(
+                    dependency_type=object,
+                    name=name
+                )
+                configuration = DependencyConfiguration(
+                    dependency=key,
+                    name=name,
+                    owner=f
+                )
+                dependency_args[name] = provide(configuration)
         return f(*args, **dependency_args)
     decorator.__is_inject__ = True
     return decorator
 
 
 def inject(value):
-        if inspect.isclass(value):
-            return __decorate_class(value)
-        if inspect.isfunction(value) or inspect.ismethod(value):
-            return __decorate_function(value)
-        return value
+            if inspect.isclass(value):
+                return _decorate_class(value)
+            if inspect.isfunction(value) or inspect.ismethod(value):
+                return _decorate_function(value)
+            return value
 
 
 __all__ = ['inject']

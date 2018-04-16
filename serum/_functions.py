@@ -3,10 +3,8 @@ from unittest.mock import MagicMock
 
 import os
 from .exceptions import UnknownEnvironment
-from ._dependency import Dependency
 from ._environment import Environment
 
-C = TypeVar('C', bound=Dependency)
 T = TypeVar('T')
 
 
@@ -19,7 +17,7 @@ def immutable(value: T) -> T:
     return cast(T, property(fget=lambda _: value))
 
 
-def mock(dependency: Union[str, Type[C]]) -> MagicMock:
+def mock(dependency: Union[str, Type[T]]) -> MagicMock:
     """
     Mock a component in the current environment
     :param dependency: The type to mock

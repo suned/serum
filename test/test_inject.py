@@ -1,18 +1,22 @@
 import unittest
+from abc import abstractmethod, ABC
 
-from typing import Union
-
-from serum import inject, Dependency, Environment, abstractmethod, Name, \
-    NamedDependency
+from serum import (
+    inject,
+    dependency,
+    Environment
+)
 from serum._injected_dependency import Dependency as InjectedDependency
-from serum.exceptions import UnregisteredDependency
+from serum.exceptions import NoNamedDependency, InjectionError
 
 
-class SomeDependency(Dependency):
+@dependency
+class SomeDependency:
     pass
 
 
-class AbstractDependency(Dependency):
+@dependency
+class AbstractDependency(ABC):
     @abstractmethod
     def abstract(self):
         pass
@@ -28,8 +32,9 @@ class AlternativeDependency(AbstractDependency):
         pass
 
 
+@dependency
 @inject
-class Chain(Dependency):
+class Chain:
     some_component: SomeDependency
 
 
@@ -55,7 +60,7 @@ class OverwriteDependent(AbstractDependent):
 
 @inject
 class NamedDependent:
-    key: Name[str]
+    key: str
 
 
 class InjectTests(unittest.TestCase):
@@ -71,16 +76,11 @@ class InjectTests(unittest.TestCase):
 
     @Environment(key='value')
     @inject
-    def test_inject_string(self, key: Name[str]):
+    def test_inject_string(self, key: str):
         self.assertEqual(key, 'value')
 
     def test_static_dependency(self):
         self.assertIsInstance(Dependent.some_dependency, InjectedDependency)
-
-    def test_inject_cant_get_abstract_component(self):
-        with Environment():
-            with self.assertRaises(UnregisteredDependency):
-                AbstractDependent()
 
     def test_inject_can_get_concrete_component(self):
         with Environment(ConcreteDependency):
@@ -152,14 +152,9 @@ class InjectTests(unittest.TestCase):
         result = f(1)
         self.assertEqual(result, 1)
 
-    @Environment(key='value')
-    @inject
-    def test_named_dependency_workaround(self, key: Union[NamedDependency, str]):
-        self.assertEqual(key, 'value')
-
     def test_overriding_injected_parameters(self):
         @inject
-        def f(first: Name, second: Name):
+        def f(first, second):
             return first, second
 
         a, b = f('a', 'b')
@@ -173,4 +168,145 @@ class InjectTests(unittest.TestCase):
 
         with self.assertRaises(TypeError):
             f()
+
+    def test_override_class_dependency(self):
+        self.assertEqual(
+            Dependent(some_dependency='test').some_dependency,
+            'test'
+        )
+
+    def test_invalid_class_dependencies(self):
+        @dependency
+        class BadDependency:
+            def __init__(self, a):
+                pass
+
+        @inject
+        class D:
+            _: BadDependency
+        with self.assertRaises(InjectionError):
+            _ = D()._
+
+    def test_subtype_is_bad_dependency(self):
+        @dependency
+        class D:
+            pass
+
+        class BadDependency(D):
+            def __init__(self, a):
+                pass
+
+        @inject
+        class C:
+            _: D
+
+        with Environment(BadDependency):
+            with self.assertRaises(InjectionError):
+                _ = C()._
+
+    def test_dependency_raises_type_error(self):
+        @dependency
+        class BadDependency:
+            def __init__(self):
+                raise TypeError()
+
+        @inject
+        class C:
+            _: BadDependency
+
+        with self.assertRaises(InjectionError):
+            _ = C()._
+
+    def test_no_named_dependency(self):
+        @inject
+        class C:
+            name: str
+
+        with self.assertRaises(NoNamedDependency):
+            _ = C().name
+
+    def test_no_dependencies(self):
+        @inject
+        class C:
+            pass
+
+        self.assertIsInstance(C(), C)
+
+    def test_missing_init_dependencies(self):
+        class D:
+            @inject
+            def __init__(self, a):
+                pass
+
+        @inject
+        class C:
+            d: D
+
+        with self.assertRaises(NoNamedDependency):
+            _ = C().d
+
+    def test_inject_with_set_attr_override(self):
+        @dependency
+        class D:
+            pass
+
+        @inject
+        class C:
+            d: D
+
+            def __setattr__(self, key, value):
+                raise AttributeError()
+
+        with self.assertRaises(InjectionError):
+            _ = C().d
+
+    def test_dependency_error_in_function(self):
+        @dependency
+        class D:
+            def __init__(self):
+                raise Exception()
+
+        @inject
+        def f(d: D):
+            pass
+
+        with self.assertRaises(InjectionError):
+            f()
+
+    def test_dependency_subtype_error_in_function(self):
+        @dependency
+        class D:
+            pass
+
+        class D2(D):
+            def __init__(self):
+                raise Exception()
+
+        @inject
+        def f(d: D):
+            pass
+
+        with Environment(D2):
+            with self.assertRaises(InjectionError):
+                f()
+
+    def test_inject_with_no_annotations(self):
+        @inject
+        def f(a):
+            return a
+
+        with Environment(a='a'):
+            self.assertEqual(f(), 'a')
+
+        with self.assertRaises(TypeError):
+            f()
+
+    def test_dependency_provided_as_keyword_arg(self):
+        @inject
+        def f(a):
+            return a
+
+        self.assertEqual(f('a'), 'a')
+
+
 

@@ -1,13 +1,15 @@
 import unittest
-from serum import mock, Dependency, inject, Environment, Name
+from serum import mock, dependency, inject, Environment
 
 
-class SomeComponent(Dependency):
+@dependency
+class SomeComponent:
     def method(self):
         return 'some value'
 
 
-class SomeCallableComponent(Dependency):
+@dependency
+class SomeCallableComponent:
     def __call__(self):
         return 'some value'
 
@@ -20,7 +22,7 @@ class Dependent:
 
 @inject
 class NamedDependent:
-    key: Name
+    key: str
 
 
 class MockTests(unittest.TestCase):

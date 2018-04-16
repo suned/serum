@@ -1,21 +1,20 @@
-import warnings
 from copy import copy, deepcopy
 from unittest.mock import create_autospec, MagicMock
 from functools import wraps
 from typing import Type, TypeVar, Set, Union, Dict
 
+from serum._dependency_configuration import DependencyConfiguration
 from serum._key import Key
-from serum.exceptions import NoNamedDependency
+from serum.exceptions import NoNamedDependency, InjectionError
 from .exceptions import (
-    UnregisteredDependency,
     AmbiguousDependencies,
     CircularDependency)
-from ._dependency import Dependency, Singleton
 import threading
 import inspect
 from collections import Counter
 
-C = TypeVar('C', bound=Dependency)
+
+T = TypeVar('T')
 
 
 class _LocalStorage(threading.local):
@@ -25,10 +24,10 @@ class _LocalStorage(threading.local):
 
 class _EnvironmentState(threading.local):
     def __init__(self):
-        self.pending: Set[Type[C]] = set()
+        self.pending: Set[Type[object]] = set()
         self.old_current: Environment = None
-        self.mocks: Dict[Type[C], MagicMock] = dict()
-        self.singletons: Dict[Type[C], C] = dict()
+        self.mocks: Dict[Type[object], MagicMock] = dict()
+        self.singletons: Dict[Type[T], T] = dict()
 
     def __deepcopy__(self, memodict):
         new = _EnvironmentState()
@@ -61,7 +60,7 @@ class Environment:
         return env
 
     @staticmethod
-    def mock(dependency: Union[str, Type[C]]):
+    def mock(dependency: Union[str, Type[object]]):
         current_env = Environment.current_env()
         if isinstance(dependency, str):
             value = current_env[dependency]
@@ -76,13 +75,13 @@ class Environment:
     def _set_current_env(env: 'Environment'):
         Environment.__local_storage.current_env = env
 
-    def __init__(self, *args: Type[C], **kwargs) -> None:
+    def __init__(self, *args: Type[object], **kwargs: object) -> None:
         """
         Construct a new environment
         :param args: Components to provide in this environment
         :param kwargs: Named dependencies to provide in this environment
         """
-        self.__registry: Set[Type[C]] = set()
+        self.__registry: Set[Type[object]] = set()
         self.__state: _EnvironmentState = _EnvironmentState()
         self.__named_dependencies = kwargs
         self.__old_current = None
@@ -103,25 +102,27 @@ class Environment:
             )
 
     @property
-    def pending(self) -> Set[Type[C]]:
+    def pending(self) -> Set[Type[object]]:
         return self.__state.pending
 
-    def get_mock(self, component: Type[C]) -> MagicMock:
+    def get_mock(self, component: Type[object]) -> MagicMock:
         return self.__state.mocks[component]
 
-    def is_mocked(self, component: Type[C]) -> bool:
+    def is_mocked(self, component: Type[object]) -> bool:
         return component in self.__state.mocks
 
-    def __use(self, component: Type[C]) -> 'Environment':
+    def __use(self, component: Type[object]) -> 'Environment':
         self.__registry.add(component)
         return self
 
-    def __contains__(self, component: Type[C]) -> bool:
+    def __contains__(self, component: Type[object]) -> bool:
         """
         Test if a Component is registered in this environment
         :param component: Component to test
         :return: True if component is registered in this environment else False
         """
+        if isinstance(component, str):
+            return component in self.__named_dependencies
         return component in self.__registry
 
     def __call__(self, f):
@@ -187,66 +188,67 @@ class Environment:
         self.__old_current = None
 
     @staticmethod
-    def provide(component: Type[C]) -> Union[C, MagicMock]:
+    def provide(configuration: DependencyConfiguration) -> Union[T, MagicMock]:
         """
         Provide a component in this environment
-        :param component: The type to provide
+        :param configuration: The type to provide
         :return: Instance of the most specific subtype of component
                  in this environment
         """
-        current_env = Environment.current_env()
+        environment = Environment.current_env()
 
-        def singleton(singleton_type: Type[C]) -> C:
-            if current_env.has_singleton_instance(singleton_type):
-                return current_env.get_singleton(singleton_type)
+        def singleton(singleton_type: Type[T]) -> T:
+            if environment.has_singleton_instance(singleton_type):
+                return environment.get_singleton(singleton_type)
             else:
                 singleton_instance = singleton_type()
-                current_env.add_singleton(
+                environment.add_singleton(
                     singleton_type,
                     singleton_instance
                 )
                 return singleton_instance
 
-        def instance(component_type: Type[C]) -> C:
+        def instance(component_type: Type[T]) -> T:
             component_instance = component_type()
             return component_instance
 
         def is_singleton(st):
-            return issubclass(st, Singleton)
+            return hasattr(st, '__is_singleton__')
 
-        def instantiate(component_type: Type[C]) -> C:
-            if is_singleton(component_type):
-                return singleton(component_type)
-            return instance(component_type)
-
-        if current_env.is_mocked(component):
-            return current_env.get_mock(component)
-        try:
-            subtype = Environment._find_subtype(component)
-            if subtype in current_env.pending:
+        def instantiate(dependency_type: Type[T]) -> T:
+            if dependency_type in environment.pending:
                 raise CircularDependency(
-                    'Circular dependency encountered while injecting {}'.format(
-                        str(component)
+                    f'Circular dependency encountered while injecting '
+                    f'{dependency_type} as "{configuration.name}" in '
+                    f'{configuration.owner}'
                     )
-                )
-            current_env.pending.add(subtype)
-            subtype_instance = instantiate(subtype)
-            current_env.pending.remove(subtype)
-            return subtype_instance
-        except UnregisteredDependency:
+            environment.pending.add(dependency_type)
             try:
-                return instantiate(component)
-            except TypeError:
-                raise UnregisteredDependency(
-                    'No concrete implementation of {} found in {}'.format(
-                        str(component),
-                        repr(current_env)
-                    )
-                )
+                if is_singleton(dependency_type):
+                    component_instance = singleton(dependency_type)
+                else:
+                    component_instance = instance(dependency_type)
+                return component_instance
+            except CircularDependency:
+                raise
+            except Exception as e:
+                raise InjectionError(
+                    f'Could not instantiate {dependency_type} when injecting '
+                    f'"{configuration.name}" in {configuration.owner}.'
+                ) from e
+            finally:
+                environment.pending.remove(dependency_type)
+
+        if environment.is_mocked(configuration.dependency):
+            return environment.get_mock(configuration.dependency)
+        subtype = Environment.find_subtype(configuration.dependency)
+        if subtype is None:
+            return instantiate(configuration.dependency)
+        return instantiate(subtype)
 
     @staticmethod
-    def _find_subtype(component: Type[C]) -> Type[C]:
-        def mro_distance(subtype: Type[C]) -> int:
+    def find_subtype(component: Type[T]) -> Union[Type[T], None]:
+        def mro_distance(subtype: Type[T]) -> int:
             mro = inspect.getmro(subtype)
             return mro.index(component)
 
@@ -265,9 +267,7 @@ class Environment:
             )
             raise AmbiguousDependencies(message)
         if not subtypes:
-            raise UnregisteredDependency(
-                'Unregistered dependency: {}'.format(str(component))
-            )
+            return None
         return max(subtypes, key=mro_distance)
 
     def get_singleton(self, singleton_type):
@@ -287,13 +287,11 @@ class Environment:
 __all__ = ['Environment']
 
 
-def provide(dependency):
-    if isinstance(dependency, Key):
-        value = Environment.current_env()[dependency.name]
-        if not isinstance(value, dependency.dependency_type):
-            warnings.warn(f'Named dependency {dependency.name} was expected'
-                          f' to have type {dependency.dependency_type}'
-                          f' but is type {type(value)}',
-                          RuntimeWarning)
-        return value
-    return Environment.provide(dependency)
+def provide(configuration: DependencyConfiguration):
+    if isinstance(configuration.dependency, Key):
+        return Environment.current_env()[configuration.name]
+    return Environment.provide(configuration)
+
+
+def current_env():
+    return Environment.current_env()
