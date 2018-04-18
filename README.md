@@ -67,8 +67,8 @@ with Environment(StubLog):
 ```
 # Documentation
 - [`inject`](#inject)
-- [`Environment`](#environment)
 - [`dependency`](#dependency)
+- [`Environment`](#environment)
 - [`singleton`](#singleton)
 - [`mock`](#mock)
 - [`match`](#match)
