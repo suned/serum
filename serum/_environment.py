@@ -16,6 +16,7 @@ from collections import Counter
 
 T = TypeVar('T')
 
+
 class _LocalStorage(threading.local):
     def __init__(self):
         self.current_env: Environment = None
