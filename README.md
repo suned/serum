@@ -130,6 +130,11 @@ class SomeClass:
     def dependency(self) -> MyDependency:
         return self.__dependency
 ```
+Dependencies that are specified as class level annotations can be overridden
+using key-word arguments to `__init__`
+```python
+assert SomeClass(dependency='Overridden!').dependency == 'Overridden!'
+```
 ## `dependency`
 Classes decorated with `dependency` can be instantiated and injected
 by `serum`.
@@ -226,7 +231,7 @@ class Dependent:
 
 
 with Environment(A, B):
-    Dependent()  # raises: CircularDependency: Circular dependency encountered while injecting <class 'AbstractA'> in <B object at 0x1061e3898>
+    Dependent().a  # raises: CircularDependency: Circular dependency encountered while injecting <class 'AbstractA'> in <B object at 0x1061e3898>
 ```
 ## `Environment`
 `Environment`s provide implementations of dependencies. An `Environment` will always provide the most

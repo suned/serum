@@ -1,11 +1,11 @@
 from copy import copy, deepcopy
 from unittest.mock import create_autospec, MagicMock
 from functools import wraps
-from typing import Type, TypeVar, Set, Union, Dict
+from typing import Type, Set, Union, Dict, TypeVar
 
-from serum._dependency_configuration import DependencyConfiguration
-from serum._key import Key
-from serum.exceptions import NoNamedDependency, InjectionError
+from ._dependency_configuration import DependencyConfiguration
+from ._key import Key
+from .exceptions import NoNamedDependency, InjectionError
 from .exceptions import (
     AmbiguousDependencies,
     CircularDependency)
@@ -16,7 +16,6 @@ from collections import Counter
 
 T = TypeVar('T')
 
-
 class _LocalStorage(threading.local):
     def __init__(self):
         self.current_env: Environment = None
@@ -26,7 +25,7 @@ class _EnvironmentState(threading.local):
     def __init__(self):
         self.pending: Set[Type[object]] = set()
         self.old_current: Environment = None
-        self.mocks: Dict[Type[object], MagicMock] = dict()
+        self.mocks: Dict[Union[str, Type[object]], MagicMock] = dict()
         self.singletons: Dict[Type[T], T] = dict()
 
     def __deepcopy__(self, memodict):
@@ -65,9 +64,8 @@ class Environment:
         if isinstance(dependency, str):
             value = current_env[dependency]
             mock = create_autospec(value)
-            current_env.__named_dependencies[dependency] = mock
-            return mock
-        mock = create_autospec(dependency, instance=True)
+        else:
+            mock = create_autospec(dependency, instance=True)
         current_env.__state.mocks[dependency] = mock
         return mock
 
@@ -94,6 +92,8 @@ class Environment:
         :param item: Name of dependency
         :return: dependency
         """
+        if self.is_mocked(item):
+            return self.__state.mocks[item]
         try:
             return self.__named_dependencies[item]
         except KeyError:
@@ -108,7 +108,7 @@ class Environment:
     def get_mock(self, component: Type[object]) -> MagicMock:
         return self.__state.mocks[component]
 
-    def is_mocked(self, component: Type[object]) -> bool:
+    def is_mocked(self, component: Union[str, Type[object]]) -> bool:
         return component in self.__state.mocks
 
     def __use(self, component: Type[object]) -> 'Environment':
@@ -213,7 +213,7 @@ class Environment:
             return component_instance
 
         def is_singleton(st):
-            return hasattr(st, '__is_singleton__')
+            return hasattr(st, '__singleton__')
 
         def instantiate(dependency_type: Type[T]) -> T:
             if dependency_type in environment.pending:
@@ -238,12 +238,12 @@ class Environment:
                 ) from e
             finally:
                 environment.pending.remove(dependency_type)
-
-        if environment.is_mocked(configuration.dependency):
-            return environment.get_mock(configuration.dependency)
-        subtype = Environment.find_subtype(configuration.dependency)
+        dependency: Type[T] = configuration.dependency
+        if environment.is_mocked(dependency):
+            return environment.get_mock(dependency)
+        subtype = Environment.find_subtype(dependency)
         if subtype is None:
-            return instantiate(configuration.dependency)
+            return instantiate(dependency)
         return instantiate(subtype)
 
     @staticmethod

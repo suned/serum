@@ -8,11 +8,11 @@ class DependencyTests(unittest.TestCase):
         @dependency
         class Dependency:
             pass
-        self.assertTrue(Dependency.__is_dependency__)
+        self.assertTrue(Dependency.__dependency__)
 
     def test_singleton(self):
         @singleton
         class Dependency:
             pass
-        self.assertTrue(Dependency.__is_dependency__)
-        self.assertTrue(Dependency.__is_singleton__)
+        self.assertTrue(Dependency.__dependency__)
+        self.assertTrue(Dependency.__singleton__)

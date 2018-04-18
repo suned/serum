@@ -60,9 +60,10 @@ class MockTests(unittest.TestCase):
     def test_mock_replaces_named_value(self):
         class Dependency:
             def method(self):
-                pass
+                return 'not value'
 
-        with Environment(key=Dependency()):
+        e = Environment(key=Dependency())
+        with e:
             mock_dependency = mock('key')
             mock_dependency.method.return_value = 'value'
             with self.assertRaises(AttributeError):
@@ -70,3 +71,6 @@ class MockTests(unittest.TestCase):
             injected = NamedDependent().key
             self.assertEqual(injected, mock_dependency)
             self.assertEqual(mock_dependency.method(), 'value')
+        with e:
+            injected = NamedDependent().key
+            self.assertEqual(injected.method(), 'not value')

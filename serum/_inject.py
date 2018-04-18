@@ -17,7 +17,7 @@ def __format_name(cls, name):
 
 
 def __is_dependency_decorated(dependency):
-    is_dependency = hasattr(dependency, '__is_dependency__')
+    is_dependency = hasattr(dependency, '__dependency__')
     return is_dependency
 
 

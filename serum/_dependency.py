@@ -1,14 +1,17 @@
-from typing import Type
+from typing import Type, TypeVar
 
 
-def dependency(cls: Type[object]):
-    cls.__is_dependency__ = True
+T2 = TypeVar('T2')
+
+
+def dependency(cls: T2) -> T2:
+    cls.__dependency__ = True  # type: ignore
     return cls
 
 
-def singleton(cls: Type[object]):
+def singleton(cls: T2) -> T2:
     cls = dependency(cls)
-    cls.__is_singleton__ = True
+    cls.__singleton__ = True  # type: ignore
     return cls
 
 

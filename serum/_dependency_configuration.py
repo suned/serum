@@ -1,12 +1,5 @@
-from typing import NamedTuple, Type, Union, TypeVar
-
-from serum._key import Key
-
-
-T = TypeVar('T')
-
-
-class DependencyConfiguration(NamedTuple):
-    dependency: Union[Key, Type[T]]
-    name: str
-    owner: object
+class DependencyConfiguration:
+    def __init__(self, dependency, name, owner):
+        self.dependency = dependency
+        self.name = name
+        self.owner = owner
