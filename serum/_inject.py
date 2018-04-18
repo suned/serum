@@ -139,11 +139,21 @@ def _decorate_function(f):
 
 
 def inject(value):
-            if inspect.isclass(value):
-                return _decorate_class(value)
-            if inspect.isfunction(value) or inspect.ismethod(value):
-                return _decorate_function(value)
-            return value
+    """
+    Decorator for a class or function in which you want to inject dependencies
+
+    @inject
+    def f(dependency):
+        assert dependency == 'dependency'
+
+    with Environment(dependency='dependency'):
+        f()
+    """
+    if inspect.isclass(value):
+        return _decorate_class(value)
+    if inspect.isfunction(value) or inspect.ismethod(value):
+        return _decorate_function(value)
+    return value
 
 
 __all__ = ['inject']

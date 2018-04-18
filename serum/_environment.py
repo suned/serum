@@ -40,7 +40,7 @@ class _EnvironmentState(threading.local):
 
 class Environment:
     """
-    Context manager/decorator for providing instances of Component:
+    Context manager/decorator for providing dependencies:
 
     with Environment(MyDependency):
         NeedsDependency()
@@ -77,7 +77,7 @@ class Environment:
     def __init__(self, *args: Type[object], **kwargs: object) -> None:
         """
         Construct a new environment
-        :param args: Components to provide in this environment
+        :param args: Dependency decorated types to provide in this environment
         :param kwargs: Named dependencies to provide in this environment
         """
         self.__registry: Set[Type[object]] = set()
@@ -118,8 +118,8 @@ class Environment:
 
     def __contains__(self, component: Type[object]) -> bool:
         """
-        Test if a Component is registered in this environment
-        :param component: Component to test
+        Test if a Dependency is registered in this environment
+        :param component: Dependency to test
         :return: True if component is registered in this environment else False
         """
         if isinstance(component, str):
@@ -140,7 +140,7 @@ class Environment:
 
     def __iter__(self):
         """
-        Iterate over the components registered in this environment
+        Iterate over the dependencies registered in this environment
         :return: Iterator of components
         """
         return iter(self.__registry)
@@ -148,7 +148,7 @@ class Environment:
     def __or__(self, other: 'Environment') -> 'Environment':
         """
         Combine this environment with another, such that the new environment
-        can provide all components in both environments
+        can provide all dependencies in both environments
         :param other: Environment to combine with this one
         :return: New environment with components from this and the other
                  environment
@@ -191,7 +191,7 @@ class Environment:
     @staticmethod
     def provide(configuration: DependencyConfiguration) -> Union[T, MagicMock]:
         """
-        Provide a component in this environment
+        Provide a dependency in this environment
         :param configuration: The type to provide
         :return: Instance of the most specific subtype of component
                  in this environment

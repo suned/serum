@@ -19,7 +19,7 @@ def immutable(value: T) -> T:
 
 def mock(dependency: Union[str, Type[T]]) -> MagicMock:
     """
-    Mock a component in the current environment
+    Mock a dependency in the current environment
     :param dependency: The type to mock
     :return: unittest.mock.MagicMock instance that replaces component in this
              environment

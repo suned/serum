@@ -1,4 +1,8 @@
 class Dependency:
+    """
+    Dependency descriptor for dependencies specified as class
+    level annotations
+    """
     def __init__(self, name):
         self.__name = name
 
