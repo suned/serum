@@ -11,7 +11,7 @@ def readme():
 setup(
   name='serum',
   packages=['serum'],
-  version='4.1.4',
+  version=version,
   description='Dependency Injection library for Python 3',
   long_description=readme(),
   long_description_content_type='text/markdown',
