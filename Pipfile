@@ -1,0 +1,15 @@
+[scripts]
+"test" = "pytest"
+
+[packages]
+# There is no dependencies ;)
+
+[dev-packages]
+pytest = "*"
+"pytest-flake8" = "*"
+semver = "*"
+twine = "*"
+wheel = "*"
+
+[requires]
+python_version = "3.5"
