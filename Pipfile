@@ -1,8 +1,8 @@
 [scripts]
 "test" = "pytest"
 "test-clear" = "rm -rf .coverage coverage.xml test-results"
-"setup-sdist" = "setup.py sdist"
-"setup-wheel" = "setup.py bdist_wheel"
+"setup-sdist" = "python ./setup.py sdist"
+"setup-wheel" = "python ./setup.py bdist_wheel"
 "release" = "twine upload -u $PYPI_USER -p $PYPI_PASSWORD  dist/*"
 
 [packages]
