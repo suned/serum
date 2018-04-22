@@ -128,8 +128,7 @@ class EnvironmentTests(unittest.TestCase):
 
     def test_missing_named_dependency(self):
         e = Environment()
-        with self.assertRaises(NoNamedDependency):
-            _ = e['key']
+        self.assertRaises(NoNamedDependency, lambda: e['key'])
 
     def test_getitem(self):
         e = Environment(key='value')
@@ -182,8 +181,7 @@ class EnvironmentTests(unittest.TestCase):
             a: AbstractA
 
         with Environment(A, B):
-            with self.assertRaises(CircularDependency):
-                _ = Dependent().a
+            self.assertRaises(CircularDependency, lambda: Dependent().a)
 
     def test_subtype_is_singleton(self):
         @singleton

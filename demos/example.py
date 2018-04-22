@@ -1,9 +1,13 @@
-from typing import NamedTuple, List
+from typing import NamedTuple, Union, List
 import argparse
 from datetime import datetime
 from unittest.mock import MagicMock
 import sqlite3
 from serum import Dependency, Environment, inject, abstractmethod, immutable
+
+
+a = Union[str, List[int]]
+v = a[2]
 
 
 class ListItem(NamedTuple):
@@ -83,7 +87,7 @@ class SQLiteDatabase(Database):
             self.connection = sqlite3.connect(self.db_name)
 
     def get_items(self) -> [ListItem]:
-
+        pass
 
     def save_item(self, item: ListItem) -> None:
         pass
@@ -118,11 +122,8 @@ class ToDoApplication:
     def read_items(self):
         self.log.info('Reading items...')
         while self.reader.more_items():
-            try:
-                item = self.read_item()
-                self.database.save_item(item)
-            except:
-                self.log.error('Could not read item')
+            item = self.read_item()
+            self.database.save_item(item)
 
     def read_item(self):
         item = self.reader.next_item()
@@ -134,6 +135,7 @@ class ToDoApplication:
         for item in self.database.get_items():
             self.writer.write_item(item)
 
+
 def production_environment() -> Environment:
     return Environment(
         SQLiteDatabase,
@@ -142,6 +144,7 @@ def production_environment() -> Environment:
         ConsoleItemReader,
         ConsoleItemWriter
     )
+
 
 def dev_environment() -> Environment:
     return Environment(
@@ -152,6 +155,7 @@ def dev_environment() -> Environment:
         ConsoleItemWriter
     )
 
+
 def test_environment() -> Environment:
     return Environment(
         InMemoryDatabase,
@@ -161,13 +165,8 @@ def test_environment() -> Environment:
         DummyItemWriter,
     )
 
+
 if __name__ == '__main__':
     with production_environment():
         app = ToDoApplication()
         app.run()
-
-from typing import Union, List
-
-a: Union[str, List[int]]
-v = a[2]
-

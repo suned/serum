@@ -1,63 +1,28 @@
-# Python CircleCI 2.0 configuration file
-#
-# Check https://circleci.com/docs/2.0/language-python/ for more details
-#
 version: 2
+general:
+  branches:
+    ignore:
+      - gh-pages
 jobs:
-  test:
+  build:
     docker:
-      - image: circleci/python:3.6.1
-    working_directory: ~/serum
+      - image: python:3.6-alpine
+    working_directory: ~/repository
     steps:
       - checkout
       - run:
-          name: install dependencies
+          name: Test trough Pipenv
           command: |
-            python3 -m venv venv
-            . venv/bin/activate
-            pip install codecov
-      - run:
-          name: run tests and report metrics
-          command: |
-            . venv/bin/activate
-            coverage run --source serum --branch  -m unittest
-            coverage report --fail-under 100
-            codecov
+            pip install pipenv
+            pipenv sync -d
+            pipenv run test
+      - store_artifacts:
+          path: test-results
+          destination: test-results
 
-
-  deploy:
-    docker:
-      - image: circleci/python:3.6.1
-    working_directory: ~/serum
-    steps:
-      - checkout
-      - run:
-          name: install dependencies
-          command: |
-            python3 -m venv venv
-            . venv/bin/activate
-            pip install --upgrade setuptools
-            pip install twine semver wheel
-      - run:
-          name: release to pypi
-          command: |
-            . venv/bin/activate
-            bash scripts/deploy.sh
 
 workflows:
   version: 2
-  test_and_deploy:
+  test:
     jobs:
-      - test:
-          filters:
-            tags:
-              only: /.*/
-      - deploy:
-          requires:
-            - test
-          filters:
-            tags:
-              only: /^v.*/
-            branches:
-              ignore: /.*/
-
+      - build

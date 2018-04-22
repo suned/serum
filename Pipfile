@@ -1,15 +1,22 @@
 [scripts]
 "test" = "pytest"
+"test-clear" = "rm -rf .coverage coverage.xml test-results"
+
 
 [packages]
 # There is no dependencies ;)
 
 [dev-packages]
+pytest-cov = "*"
+parameterized = "*"
+semver = "*"
 pytest = "*"
 "pytest-flake8" = "*"
-semver = "*"
+"flake8" = "*"
+coverage = "*"
 twine = "*"
 wheel = "*"
+ipython = "*"
 
 [requires]
-python_version = "3.5"
+python_version = "3.6"
