@@ -19,7 +19,7 @@ setup(
     author='Sune Debel',
     license='MIT',
     author_email='sd@dybro-debel.dk',
-    python_requires='>=3.5',
+    python_requires='>=3.6',
     url='https://github.com/suned/serum',
     keywords=['dependency-injection', 'solid', 'inversion-of-control'],
     classifiers=[],
