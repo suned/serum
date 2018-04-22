@@ -4,14 +4,19 @@ general:
     ignore:
       - gh-pages
 jobs:
-  build:
+  test:
     docker:
       - image: python:3.6-alpine
-    working_directory: ~/repository
+    working_directory: ~/serum
     steps:
       - checkout
       - run:
-          name: Test trough Pipenv
+          name: Prepare
+          command: |
+            pip install pipenv
+            pipenv sync -d
+      - run:
+          name: Test
           command: |
             pip install pipenv
             pipenv sync -d
@@ -19,10 +24,38 @@ jobs:
       - store_artifacts:
           path: test-results
           destination: test-results
-
+  deploy:
+    docker:
+      - image: python:3.6-alpine
+    working_directory: ~/serum
+    steps:
+      - checkout
+      - run:
+          name: Prepare
+          command: |
+            pip install pipenv
+            pipenv sync -d
+      - run:
+          name: Build
+          command: |
+            pipenv run setup-sdist
+            pipenv run setup-wheel
+      - run:
+          name: Deploy
+          command: |
+            pipenv run release
 
 workflows:
   version: 2
   test:
     jobs:
-      - build
+      - test:
+          filters:
+            tags:
+              only: /.*/
+      - deploy:
+          requires:
+            - test
+          filters:
+            tags:
+              only: /^v.*/
