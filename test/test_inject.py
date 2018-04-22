@@ -308,5 +308,10 @@ class InjectTests(unittest.TestCase):
 
         self.assertEqual(f('a'), 'a')
 
+    def test_inject_with_return_annotation(self):
+        @inject
+        def f(a: int) -> int:
+            return a
 
-
+        with Environment(a=1):
+            self.assertEqual(f(), 1)
