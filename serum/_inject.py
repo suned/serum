@@ -98,7 +98,9 @@ def _decorate_function(f):
     def decorator(*args, **kwargs):
         positional_names = {name for name, arg in zip(names, args)}
         dependency_args = kwargs
-        for name, dependency in f.__annotations__.items():
+        annotations = f.__annotations__
+        return_type = annotations.pop('return', None)
+        for name, dependency in annotations.items():
             if name in dependency_args or name in positional_names:
                 continue
             if __is_dependency_decorated(dependency):
