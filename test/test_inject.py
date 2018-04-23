@@ -184,8 +184,7 @@ class InjectTests(unittest.TestCase):
         @inject
         class D:
             _: BadDependency
-        with self.assertRaises(InjectionError):
-            _ = D()._
+        self.assertRaises(InjectionError, lambda: D()._)
 
     def test_subtype_is_bad_dependency(self):
         @dependency
@@ -201,8 +200,7 @@ class InjectTests(unittest.TestCase):
             _: D
 
         with Environment(BadDependency):
-            with self.assertRaises(InjectionError):
-                _ = C()._
+            self.assertRaises(InjectionError, lambda: C()._)
 
     def test_dependency_raises_type_error(self):
         @dependency
@@ -214,16 +212,14 @@ class InjectTests(unittest.TestCase):
         class C:
             _: BadDependency
 
-        with self.assertRaises(InjectionError):
-            _ = C()._
+        self.assertRaises(InjectionError, lambda: C()._)
 
     def test_no_named_dependency(self):
         @inject
         class C:
             name: str
 
-        with self.assertRaises(NoNamedDependency):
-            _ = C().name
+        self.assertRaises(NoNamedDependency, lambda: C().name)
 
     def test_no_dependencies(self):
         @inject
@@ -242,8 +238,7 @@ class InjectTests(unittest.TestCase):
         class C:
             d: D
 
-        with self.assertRaises(NoNamedDependency):
-            _ = C().d
+        self.assertRaises(NoNamedDependency, lambda: C().d)
 
     def test_inject_with_set_attr_override(self):
         @dependency
@@ -257,8 +252,7 @@ class InjectTests(unittest.TestCase):
             def __setattr__(self, key, value):
                 raise AttributeError()
 
-        with self.assertRaises(InjectionError):
-            _ = C().d
+        self.assertRaises(InjectionError, lambda: C().d)
 
     def test_dependency_error_in_function(self):
         @dependency

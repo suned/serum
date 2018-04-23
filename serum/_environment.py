@@ -1,7 +1,7 @@
 from copy import copy, deepcopy
 from unittest.mock import create_autospec, MagicMock
 from functools import wraps
-from typing import Type, Set, Union, Dict, TypeVar
+from typing import Type, Set, Union, Dict, TypeVar, Optional  # noqa
 
 from ._dependency_configuration import DependencyConfiguration
 from ._key import Key
@@ -19,7 +19,7 @@ T = TypeVar('T')
 
 class _LocalStorage(threading.local):
     def __init__(self):
-        self.current_env: Environment = None
+        self.current_env = None  # type: Optional[Environment]
 
 
 class _EnvironmentState(threading.local):
