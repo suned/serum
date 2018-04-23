@@ -1,0 +1,6 @@
+[run]
+source = serum
+branch = True
+
+[report]
+fail_under = 100
