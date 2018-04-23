@@ -511,5 +511,4 @@ designing classes that follow the Dependency Inversion Principle:
 > one should “depend upon abstractions, _not_ concretions."
 
 This is achieved by letting inheritance being the principle way of providing
-dependencies and allowing dependencies to be abstract. See the `example.py` for a
-detailed tutorial (work in progress).
+dependencies and allowing dependencies to be abstract.
