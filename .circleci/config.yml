@@ -45,7 +45,7 @@ jobs:
       - run:
           name: Deploy
           command: |
-            pipenv run release
+            pipenv run release -u $PYPI_USER -p $PYPI_PASSWORD
 
 workflows:
   version: 2

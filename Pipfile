@@ -3,7 +3,7 @@
 "test-clear" = "rm -rf .coverage coverage.xml test-results"
 "setup-sdist" = "python ./setup.py sdist"
 "setup-wheel" = "python ./setup.py bdist_wheel"
-"release" = "twine upload -u $PYPI_USER -p $PYPI_PASSWORD  dist/*"
+"release" = "twine upload -u dist/*"
 
 [packages]
 # There is no dependencies ;)
@@ -17,7 +17,7 @@ pytest = "*"
 "flake8" = "*"
 coverage = "*"
 twine = "*"
-setuptools = "*"
+setuptools = "39.0.1"
 wheel = "*"
 ipython = "*"
 
