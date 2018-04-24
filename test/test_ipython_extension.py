@@ -1,10 +1,10 @@
 import unittest
 import sys
-from serum import Environment, load_ipython_extension, unload_ipython_extension
+from serum import Context, load_ipython_extension, unload_ipython_extension
 
 
-class MockIpythonEnvironment:
-    environment = Environment()
+class MockIpythonContext:
+    context = Context()
 
 
 class IPythonExtensionTests(unittest.TestCase):
@@ -13,18 +13,18 @@ class IPythonExtensionTests(unittest.TestCase):
         self.assertEqual(load_ipython_extension(None), None)
 
     def test_load_extension(self):
-        sys.modules['ipython_environment'] = MockIpythonEnvironment
+        sys.modules['ipython_context'] = MockIpythonContext
         load_ipython_extension(None)
         self.assertIs(
-            MockIpythonEnvironment.environment,
-            Environment.current_env()
+            MockIpythonContext.context,
+            Context.current_context()
         )
         unload_ipython_extension(None)
         self.assertIsNot(
-            MockIpythonEnvironment,
-            Environment.current_env()
+            MockIpythonContext,
+            Context.current_context()
         )
-        sys.modules['ipython_environment'] = None
+        sys.modules['ipython_context'] = None
 
     def test_unload_extension_no_ipython_environment(self):
         self.assertEqual(unload_ipython_extension(None), None)

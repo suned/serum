@@ -4,7 +4,7 @@ from abc import abstractmethod, ABC
 from serum import (
     inject,
     dependency,
-    Environment
+    Context
 )
 from serum._injected_dependency import Dependency as InjectedDependency
 from serum.exceptions import NoNamedDependency, InjectionError
@@ -53,6 +53,10 @@ class SubDependent(AbstractDependent):
     pass
 
 
+class SubSubDependent(SubDependent):
+    pass
+
+
 @inject
 class OverwriteDependent(AbstractDependent):
     abstract_dependency: AlternativeDependency
@@ -74,7 +78,7 @@ class InjectTests(unittest.TestCase):
         with self.assertRaises(AttributeError):
             d.some_dependency = 'test'
 
-    @Environment(key='value')
+    @Context(key='value')
     @inject
     def test_inject_string(self, key: str):
         self.assertEqual(key, 'value')
@@ -83,17 +87,17 @@ class InjectTests(unittest.TestCase):
         self.assertIsInstance(Dependent.some_dependency, InjectedDependency)
 
     def test_inject_can_get_concrete_component(self):
-        with Environment(ConcreteDependency):
+        with Context(ConcreteDependency):
             d = AbstractDependent()
             self.assertIsInstance(d.abstract_dependency, AbstractDependency)
             self.assertIsInstance(d.abstract_dependency, ConcreteDependency)
 
     def test_inject_provides_correct_implementation(self):
-        with Environment(ConcreteDependency):
+        with Context(ConcreteDependency):
             d = AbstractDependent()
             self.assertIsInstance(d.abstract_dependency, AbstractDependency)
             self.assertIsInstance(d.abstract_dependency, ConcreteDependency)
-        with Environment(AlternativeDependency):
+        with Context(AlternativeDependency):
             d = AbstractDependent()
             self.assertIsInstance(d.abstract_dependency, AbstractDependency)
             self.assertIsInstance(d.abstract_dependency, AlternativeDependency)
@@ -104,16 +108,16 @@ class InjectTests(unittest.TestCase):
         self.assertIsInstance(d.chain.some_component, SomeDependency)
 
     def test_injected_are_different_instances(self):
-        with Environment():
+        with Context():
             d1 = Dependent()
             d2 = Dependent()
             self.assertIsNot(d1.some_dependency, d2.some_dependency)
 
     def test_named_dependency(self):
-        with Environment(key='value'):
+        with Context(key='value'):
             self.assertEqual(NamedDependent().key, 'value')
 
-    @Environment(ConcreteDependency)
+    @Context(ConcreteDependency)
     def test_inheritance(self):
         self.assertIsInstance(
             SubDependent().abstract_dependency,
@@ -122,6 +126,10 @@ class InjectTests(unittest.TestCase):
         self.assertIsInstance(
             OverwriteDependent().abstract_dependency,
             AlternativeDependency
+        )
+        self.assertIsInstance(
+            SubSubDependent().abstract_dependency,
+            ConcreteDependency
         )
 
     def test_decorate_class_with_no_annotations(self):
@@ -200,7 +208,7 @@ class InjectTests(unittest.TestCase):
         class C:
             _: D
 
-        with Environment(BadDependency):
+        with Context(BadDependency):
             with self.assertRaises(InjectionError):
                 _ = C()._
 
@@ -286,7 +294,7 @@ class InjectTests(unittest.TestCase):
         def f(d: D):
             pass
 
-        with Environment(D2):
+        with Context(D2):
             with self.assertRaises(InjectionError):
                 f()
 
@@ -295,7 +303,7 @@ class InjectTests(unittest.TestCase):
         def f(a):
             return a
 
-        with Environment(a='a'):
+        with Context(a='a'):
             self.assertEqual(f(), 'a')
 
         with self.assertRaises(TypeError):
@@ -313,5 +321,5 @@ class InjectTests(unittest.TestCase):
         def f(a: int) -> int:
             return a
 
-        with Environment(a=1):
+        with Context(a=1):
             self.assertEqual(f(), 1)

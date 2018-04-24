@@ -3,7 +3,7 @@ from unittest.mock import MagicMock
 
 import os
 from .exceptions import UnknownEnvironment
-from ._environment import Environment
+from ._context import Context
 
 T = TypeVar('T')
 
@@ -24,12 +24,12 @@ def mock(dependency: Union[str, Type[T]]) -> MagicMock:
     :return: unittest.mock.MagicMock instance that replaces component in this
              environment
     """
-    return Environment.mock(dependency)
+    return Context.mock(dependency)
 
 
 def match(environment_variable: str,
-          default: Environment = None,
-          **environments) -> Environment:
+          default: Context = None,
+          **environments) -> Context:
     """
     Match environment variable with Environment
     :param environment_variable: environment variable to match environment against

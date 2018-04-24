@@ -1,5 +1,5 @@
 import unittest
-from serum import mock, dependency, inject, Environment
+from serum import mock, dependency, inject, Context
 
 
 @dependency
@@ -27,7 +27,7 @@ class NamedDependent:
 
 class MockTests(unittest.TestCase):
     def test_mock_always_replaces_component(self):
-        with Environment():
+        with Context():
             some_component_mock = mock(SomeComponent)
             some_component_mock.method.return_value = 'some other value'
             d = Dependent()
@@ -35,18 +35,18 @@ class MockTests(unittest.TestCase):
             self.assertEqual(d.some_component.method(), 'some other value')
 
     def test_mocks_are_reset_after_context_exit(self):
-        with Environment():
+        with Context():
             some_component_mock = mock(SomeComponent)
             d = Dependent()
             self.assertIs(some_component_mock, d.some_component)
 
-        with Environment():
+        with Context():
             d = Dependent()
             self.assertIsNot(some_component_mock, d.some_component)
             self.assertIsInstance(d.some_component, SomeComponent)
 
     def test_mock_is_specced(self):
-        with Environment():
+        with Context():
             some_component_mock = mock(SomeComponent)
             self.assertIsInstance(some_component_mock, SomeComponent)
             with self.assertRaises(AttributeError):
@@ -62,7 +62,7 @@ class MockTests(unittest.TestCase):
             def method(self):
                 return 'not value'
 
-        e = Environment(key=Dependency())
+        e = Context(key=Dependency())
         with e:
             mock_dependency = mock('key')
             mock_dependency.method.return_value = 'value'

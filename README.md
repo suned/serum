@@ -14,7 +14,7 @@
 ```
 # Quickstart
 ```python
-from serum import inject, dependency, Environment
+from serum import inject, dependency, Context
 
 
 # Classes decorated with 'dependency' are injectable types.
@@ -52,23 +52,23 @@ class NeedsNamedDependency:
                            # dependency
                            
 
-# Environments provide dependencies
-with Environment(SimpleLog, named_dependency='this name is injected!'):
+# Contexts provide dependencies
+with Context(SimpleLog, named_dependency='this name is injected!'):
     assert isinstance(NeedsLog().log, SimpleLog)
     assert NeedsNamedDependency().named_dependency == 'this name is injected!'
     
 
-# Environments will always provide the most specific 
+# Contexts will always provide the most specific 
 # subtype of the requested type. This allows you to change which
 # dependencies are injected.
-with Environment(StubLog):
+with Context(StubLog):
     NeedsLog().log.info('Hello serum!')  # doesn't output anything
     NeedsSimpleLog().log.info('Hello serum!')  # doesn't output anything
 ```
 # Documentation
 - [`inject`](#inject)
 - [`dependency`](#dependency)
-- [`Environment`](#environment)
+- [`Context`](#context)
 - [`singleton`](#singleton)
 - [`mock`](#mock)
 - [`match`](#match)
@@ -78,7 +78,7 @@ with Environment(StubLog):
 `inject` is used to decorate functions and classes in which you want to inject
 dependencies.
 ```python
-from serum import inject, dependency, Environment
+from serum import inject, dependency
 
 @dependency
 class MyDependency:
@@ -104,7 +104,7 @@ this way, your entire dependency graph can be specified using just `inject` and
 `dependency`.
 
 Instances of simple types and objects you want to instantiate yourself can be
-injected using keyword arguments to [`Environment`](#environment).
+injected using keyword arguments to [`Context`](#context).
 ```python
 @inject
 def f(dependency: str):
@@ -230,11 +230,11 @@ class Dependent:
     a: AbstractA
 
 
-with Environment(A, B):
+with Context(A, B):
     Dependent().a  # raises: CircularDependency: Circular dependency encountered while injecting <class 'AbstractA'> in <B object at 0x1061e3898>
 ```
-## `Environment`
-`Environment`s provide implementations of dependencies. An `Environment` will always provide the most
+## `Context`
+`Context`s provide implementations of dependencies. A `Context` will always provide the most
 specific subtype of the requested type (in Method Resolution Order).
 ```python
 @dependency
@@ -250,23 +250,23 @@ class NeedsSuper:
     instance: Super
 
 
-with Environment(Sub):
+with Context(Sub):
     assert isinstance(NeedsSuper().instance, Sub)
 ```
-It is an error to inject a type in an `Environment` that provides two or more equally specific subtypes of that type:
+It is an error to inject a type in an `Context` that provides two or more equally specific subtypes of that type:
 ```python
 class AlsoSub(Super):
     pass
 
 
-with Environment(Sub, AlsoSub):
+with Context(Sub, AlsoSub):
     NeedsSuper() # raises: AmbiguousDependencies: Attempt to inject type <class 'Log'> with equally specific provided subtypes: <class 'MockLog'>, <class 'FileLog'>
 ```
-`Environment`s can also be used as decorators:
+`Context`s can also be used as decorators:
 ```python
-environment = Environment(Sub)
+context = Context(Sub)
 
-@environment
+@context
 def f():
     assert isinstance(NeedsSuper().instance, Sub)
 
@@ -279,13 +279,13 @@ class Database:
     
 
 connection_string = 'mysql+pymysql://root:my_pass@127.0.0.1:3333/my_db'
-environment = Environment(
+context = Context(
     connection_string=connection_string
 )
-with environment:
+with context:
     assert Database().connection_string == connection_string
 ```
-`Environment`s are local to each thread. This means that when using multi-threading
+`Context`s are local to each thread. This means that when using multi-threading
 each thread must define its own environment.
 ```python
 import threading
@@ -297,13 +297,13 @@ def worker_with_environment():
     with Environment(Sub):
         NeedsSuper().instance  # OK!
 
-with Environment():
+with Context():
     threading.Thread(target=worker_without_environment()).start()
     threading.Thread(target=worker_with_environment()).start()
 ```
 
 ## `singleton`
-To always inject the same instance of a dependency in the same `Environment`, inherit from `Singleton`.
+To always inject the same instance of a dependency in the same `Context`, inherit from `Singleton`.
 ```python
 from serum import singleton
 
@@ -326,10 +326,10 @@ Note that `Singleton` dependencies injected in different environments
 will not refer to the same instance.
 ```python
 
-with Environment():
+with Context():
     instance1 = NeedsExpensiveObject()
 
-with Environment():
+with Context():
     assert instance1.expensive_instance is not NeedsExpensiveObject().expensive_instance
 ```
 ## `mock`
@@ -350,15 +350,15 @@ class Dependent:
     dependency: SomeDependency
 
 
-environment = Environment()
-with environment:
+context = Context()
+with context:
     mock_dependency = mock(SomeDependency)
     mock_dependency.method.return_value = 'some mocked value'
     instance = Dependent()
     assert instance.dependency is mock_dependency
     assert instance.dependency.method() == 'some mocked value'
 
-with environment:
+with context:
     instance = Dependent()
     assert instance.dependency is not mock_dependency
     assert isinstance(instance.dependency, SomeDependency)
@@ -367,7 +367,7 @@ with environment:
 that attempting to call methods that are not defined by the mocked `Component`
 leads to an error
 ```python
-with environment:
+with context:
     mock_dependency = mock(SomeDependency)
     mock_dependency.no_method()  # raises: AttributeError: Mock object has no attribute 'no method'
 ```
@@ -405,7 +405,7 @@ class NeedsSubSub:
     injected: SubSub
 
 
-with Environment():
+with Context():
     mock(Sub)
     needs_super = NeedsSuper()
     needs_sub = NeedsSub()
@@ -415,7 +415,7 @@ with Environment():
     assert isinstance(needs_subsub.injected, SubSub)
 ```
 ## `match`
-`match` is small utility function for matching `Environment` instances
+`match` is small utility function for matching `Context` instances
 with values of an environment variable.
 ```python
 # my_script.py
@@ -442,14 +442,14 @@ def f(dependency: BaseDependency):
     dependency.method()
 
 
-environment = match(
+context = match(
     environment_variable='MY_SCRIPT_ENV', 
-    default=Environment(ProductionDependency),
-    PROD=Environment(ProductionDependency),
-    TEST=Environment(TestDependency)
+    default=Context(ProductionDependency),
+    PROD=Context(ProductionDependency),
+    TEST=Context(TestDependency)
 )
 
-with environment:
+with context:
     f()
 ```
 ```
@@ -465,9 +465,9 @@ Production!
 Test!
 ```
 ## IPython Integration
-It can be slightly annoying to import some `Environment` and start it as a
+It can be slightly annoying to import some `Context` and start it as a
 context manager in the beginning of every IPython session. 
-Moreover, you quite often want to run an IPython REPL in a special environment,
+Moreover, you quite often want to run an IPython REPL in a special context,
 e.g to provide configuration that is normally supplied through command line
 arguments in some other way.
 
@@ -476,17 +476,17 @@ add the following lines to your `ipython_config.py`:
 ```python
 c.InteractiveShellApp.extensions = ['serum']
 ```
-Finally, create a file named `ipython_environment.py` in the root of your project. In it,
-assign the `Environment` instance you would like automatically started to a global
-variable named `environment`:
+Finally, create a file named `ipython_context.py` in the root of your project. In it,
+assign the `Context` instance you would like automatically started to a global
+variable named `context`:
 ```python
-# ipython_environment.py
-from serum import Environment
+# ipython_context.py
+from serum import Context
 
 
-environment = Environment()
+context = Context()
 ```
-IPython will now enter this environment automatically in the beginning of
+IPython will now enter this context automatically in the beginning of
 every REPL session started in the root of your project.
 # Why?
 If you've been researching Dependency Injection frameworks for python,

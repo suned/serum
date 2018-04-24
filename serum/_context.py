@@ -19,18 +19,18 @@ T = TypeVar('T')
 
 class _LocalStorage(threading.local):
     def __init__(self):
-        self.current_env: Environment = None
+        self.current_env: Context = None
 
 
-class _EnvironmentState(threading.local):
+class _ContextState(threading.local):
     def __init__(self):
         self.pending: Set[Type[object]] = set()
-        self.old_current: Environment = None
+        self.old_current: Context = None
         self.mocks: Dict[Union[str, Type[object]], MagicMock] = dict()
         self.singletons: Dict[Type[T], T] = dict()
 
     def __deepcopy__(self, memodict):
-        new = _EnvironmentState()
+        new = _ContextState()
         new.pending = copy(self.pending)
         new.old_current = copy(self.old_current)
         new.mocks = copy(self.mocks)
@@ -38,30 +38,30 @@ class _EnvironmentState(threading.local):
         return new
 
 
-class Environment:
+class Context:
     """
     Context manager/decorator for providing dependencies:
 
-    with Environment(MyDependency):
+    with Context(MyDependency):
         NeedsDependency()
     or
 
-    @Environment(MyDependency):
+    @Context(MyDependency):
     def fun():
         NeedsDependency()
     """
     __local_storage = _LocalStorage()
 
     @staticmethod
-    def current_env() -> 'Environment':
-        env = Environment.__local_storage.current_env
+    def current_context() -> 'Context':
+        env = Context.__local_storage.current_env
         if env is None:
-            return Environment()
+            return Context()
         return env
 
     @staticmethod
     def mock(dependency: Union[str, Type[object]]):
-        current_env = Environment.current_env()
+        current_env = Context.current_context()
         if isinstance(dependency, str):
             value = current_env[dependency]
             mock = create_autospec(value)
@@ -71,17 +71,17 @@ class Environment:
         return mock
 
     @staticmethod
-    def _set_current_env(env: 'Environment'):
-        Environment.__local_storage.current_env = env
+    def _set_current_env(env: 'Context'):
+        Context.__local_storage.current_env = env
 
     def __init__(self, *args: Type[object], **kwargs: object) -> None:
         """
-        Construct a new environment
-        :param args: Dependency decorated types to provide in this environment
-        :param kwargs: Named dependencies to provide in this environment
+        Construct a new context
+        :param args: Dependency decorated types to provide in this context
+        :param kwargs: Named dependencies to provide in this context
         """
         self.__registry: Set[Type[object]] = set()
-        self.__state: _EnvironmentState = _EnvironmentState()
+        self.__state: _ContextState = _ContextState()
         self.__named_dependencies = kwargs
         self.__old_current = None
         for c in args:
@@ -112,13 +112,13 @@ class Environment:
     def is_mocked(self, component: Union[str, Type[object]]) -> bool:
         return component in self.__state.mocks
 
-    def __use(self, component: Type[object]) -> 'Environment':
+    def __use(self, component: Type[object]) -> 'Context':
         self.__registry.add(component)
         return self
 
     def __contains__(self, component: Type[object]) -> bool:
         """
-        Test if a Dependency is registered in this environment
+        Test if a Dependency is registered in this context
         :param component: Dependency to test
         :return: True if component is registered in this environment else False
         """
@@ -128,7 +128,7 @@ class Environment:
 
     def __call__(self, f):
         """
-        Decorate a function to run in this environment
+        Decorate a function to run in this context
         :param f: function to decorate
         :return: decorated function
         """
@@ -140,31 +140,31 @@ class Environment:
 
     def __iter__(self):
         """
-        Iterate over the dependencies registered in this environment
+        Iterate over the dependencies registered in this context
         :return: Iterator of components
         """
         return iter(self.__registry)
 
-    def __or__(self, other: 'Environment') -> 'Environment':
+    def __or__(self, other: 'Context') -> 'Context':
         """
-        Combine this environment with another, such that the new environment
-        can provide all dependencies in both environments
-        :param other: Environment to combine with this one
-        :return: New environment with components from this and the other
+        Combine this environment with another, such that the new context
+        can provide all dependencies in both contexts
+        :param other: context to combine with this one
+        :return: New context with components from this and the other
                  environment
         """
         new_registry = self.__registry | other.__registry
-        return Environment(*new_registry)
+        return Context(*new_registry)
 
     def __enter__(self):
         """
-        Register this environment as the current environment in this thread
+        Register this context as the current environment in this thread
         :return:
         """
-        self.__old_current = Environment.current_env()
+        self.__old_current = Context.current_context()
         old_state = self.__old_current.__copy_state()
         self.__set_state(old_state)
-        Environment._set_current_env(self)
+        Context._set_current_env(self)
         return self
 
     def __set_state(self, state):
@@ -178,32 +178,32 @@ class Environment:
 
     def __exit__(self, exc_type, exc_val, exc_tb):
         """
-        De-register this environment as the current environment in this thread
+        De-register this context as the current environment in this thread
         :param exc_type:
         :param exc_val:
         :param exc_tb:
         :return:
         """
         self.__state.__init__()
-        Environment._set_current_env(self.__old_current)
+        Context._set_current_env(self.__old_current)
         self.__old_current = None
 
     @staticmethod
     def provide(configuration: DependencyConfiguration) -> Union[T, MagicMock]:
         """
-        Provide a dependency in this environment
+        Provide a dependency in this context
         :param configuration: The type to provide
         :return: Instance of the most specific subtype of component
                  in this environment
         """
-        environment = Environment.current_env()
+        context = Context.current_context()
 
         def singleton(singleton_type: Type[T]) -> T:
-            if environment.has_singleton_instance(singleton_type):
-                return environment.get_singleton(singleton_type)
+            if context.has_singleton_instance(singleton_type):
+                return context.get_singleton(singleton_type)
             else:
                 singleton_instance = singleton_type()
-                environment.add_singleton(
+                context.add_singleton(
                     singleton_type,
                     singleton_instance
                 )
@@ -217,13 +217,13 @@ class Environment:
             return hasattr(st, '__singleton__')
 
         def instantiate(dependency_type: Type[T]) -> T:
-            if dependency_type in environment.pending:
+            if dependency_type in context.pending:
                 raise CircularDependency(
                     f'Circular dependency encountered while injecting '
                     f'{dependency_type} as "{configuration.name}" in '
                     f'{configuration.owner}'
                     )
-            environment.pending.add(dependency_type)
+            context.pending.add(dependency_type)
             try:
                 if is_singleton(dependency_type):
                     component_instance = singleton(dependency_type)
@@ -238,11 +238,11 @@ class Environment:
                     f'"{configuration.name}" in {configuration.owner}.'
                 ) from e
             finally:
-                environment.pending.remove(dependency_type)
+                context.pending.remove(dependency_type)
         dependency: Type[T] = configuration.dependency
-        if environment.is_mocked(dependency):
-            return environment.get_mock(dependency)
-        subtype = Environment.find_subtype(dependency)
+        if context.is_mocked(dependency):
+            return context.get_mock(dependency)
+        subtype = Context.find_subtype(dependency)
         if subtype is None:
             return instantiate(dependency)
         return instantiate(subtype)
@@ -253,7 +253,7 @@ class Environment:
             mro = inspect.getmro(subtype)
             return mro.index(component)
 
-        subtypes = [c for c in Environment.current_env()
+        subtypes = [c for c in Context.current_context()
                     if issubclass(c, component)]
         distances = [mro_distance(subtype) for subtype in subtypes]
         counter = Counter(distances)
@@ -282,17 +282,17 @@ class Environment:
         named_dependencies = [f'{key}={repr(value)}' for key, value
                               in self.__named_dependencies.items()]
         args = ', '.join(dependencies + named_dependencies)
-        return f'Environment({args})'
+        return f'Context({args})'
 
 
-__all__ = ['Environment']
+__all__ = ['Context']
 
 
 def provide(configuration: DependencyConfiguration):
     if isinstance(configuration.dependency, Key):
-        return Environment.current_env()[configuration.name]
-    return Environment.provide(configuration)
+        return Context.current_context()[configuration.name]
+    return Context.provide(configuration)
 
 
-def current_env():
-    return Environment.current_env()
+def current_context():
+    return Context.current_context()

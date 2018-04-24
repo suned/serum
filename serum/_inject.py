@@ -6,7 +6,7 @@ from functools import wraps
 from serum._dependency_configuration import DependencyConfiguration
 from serum.exceptions import InjectionError
 from ._key import Key
-from ._environment import provide, current_env
+from ._context import provide, current_context
 from ._injected_dependency import Dependency as InjectedDependency
 
 T = TypeVar('T')
@@ -39,6 +39,28 @@ def __set_dependency(configuration: DependencyConfiguration, kwargs, name):
             ) from e
 
 
+def _set_base_dependencies(bases, kwargs, self):
+    for base in bases:
+        if hasattr(base, '__dependencies__'):
+            for annotated_name, name, dependency in base.__dependencies__:
+                if hasattr(self, name):
+                    # if 'self' already has 'name', then it was overwritten
+                    # and should not be reset with a type from
+                    # a base class
+                    continue
+                configuration = DependencyConfiguration(
+                    dependency=dependency,
+                    name=annotated_name,
+                    owner=self
+                )
+                __set_dependency(
+                    configuration,
+                    kwargs,
+                    name,
+                )
+        _set_base_dependencies(base.__bases__, kwargs, self)
+
+
 def __decorate_init(init):
     @wraps(init)
     def decorator(self, *args, **kwargs):
@@ -49,24 +71,8 @@ def __decorate_init(init):
                 owner=self
             )
             __set_dependency(configuration, kwargs, name)
-        for base in self.__class__.__bases__:
-            if hasattr(base, '__dependencies__'):
-                for annotated_name, name, dependency in base.__dependencies__:
-                    if hasattr(self, name):
-                        # if 'self' already has 'name', then it was overwritten
-                        # and should not be reset with a type from
-                        # a base class
-                        continue
-                    configuration = DependencyConfiguration(
-                        dependency=dependency,
-                        name=annotated_name,
-                        owner=self
-                    )
-                    __set_dependency(
-                        configuration,
-                        kwargs,
-                        name,
-                    )
+        bases = self.__class__.__bases__
+        _set_base_dependencies(bases, kwargs, self)
         return init(self, *args, **kwargs)
     return decorator
 
@@ -110,7 +116,7 @@ def _decorate_function(f):
                     owner=f
                 )
                 dependency_args[name] = provide(configuration)
-            elif name in current_env():
+            elif name in current_context():
                 key = Key(
                     dependency_type=dependency,
                     name=name
@@ -122,7 +128,7 @@ def _decorate_function(f):
                 )
                 dependency_args[name] = provide(configuration)
         for name in names:
-            if (name in current_env()
+            if (name in current_context()
                     and name not in dependency_args
                     and name not in positional_names):
                 key = Key(
