@@ -28,7 +28,7 @@ jobs:
           destination: test-results
   deploy:
     docker:
-      - image: python:3.6-alpine
+      - image: python:3.6
     working_directory: ~/serum
     steps:
       - checkout
@@ -63,5 +63,3 @@ workflows:
               only: /^v.*/
             branches:
               ignore: /.*/
-
-
