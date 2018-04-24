@@ -6,7 +6,7 @@ general:
 jobs:
   test:
     docker:
-      - image: python:3.6-alpine
+      - image: python:3.6
     working_directory: ~/serum
     steps:
       - checkout
