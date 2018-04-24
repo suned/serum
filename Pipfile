@@ -17,7 +17,7 @@ pytest = "*"
 "flake8" = "*"
 coverage = "*"
 twine = "*"
-setuptools = "39.0.1"
+setuptools = "*"
 wheel = "*"
 ipython = "*"
 
