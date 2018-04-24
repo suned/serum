@@ -15,11 +15,14 @@ jobs:
           command: |
             pip install pipenv
             pipenv sync -d
+            curl -L https://codeclimate.com/downloads/test-reporter/test-reporter-latest-linux-amd64 > ./cc-test-reporter
+            chmod +x ./cc-test-reporter
       - run:
           name: Test
           command: |
+            ./cc-test-reporter before-build
             pipenv run test
-            coverage
+            ./cc-test-reporter after-build --exit-code $?
       - store_artifacts:
           path: test-results
           destination: test-results
