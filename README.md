@@ -1,6 +1,15 @@
 # Build Status
 
-[![CircleCI](https://circleci.com/gh/suned/serum.svg?style=svg)](https://circleci.com/gh/suned/serum) [![codecov](https://codecov.io/gh/suned/serum/branch/master/graph/badge.svg)](https://codecov.io/gh/suned/serum)
+Build status: 
+
+[![CircleCI](https://circleci.com/gh/suned/serum.svg?style=svg)](https://circleci.com/gh/suned/serum)
+
+Code quality:
+
+[![Test Coverage](https://api.codeclimate.com/v1/badges/523bc990f4ef696aa22d/test_coverage)](https://codeclimate.com/github/suned/serum/test_coverage) 
+
+[![Maintainability](https://api.codeclimate.com/v1/badges/523bc990f4ef696aa22d/maintainability)](https://codeclimate.com/github/suned/serum/maintainability)
+
 
 
 
