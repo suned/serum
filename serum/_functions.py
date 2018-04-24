@@ -1,4 +1,4 @@
-from typing import TypeVar, Type, cast, Union
+from typing import TypeVar, Type, Union
 from unittest.mock import MagicMock
 
 import os

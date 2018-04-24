@@ -128,9 +128,9 @@ def _decorate_function(f):
                 )
                 dependency_args[name] = provide(configuration)
         for name in names:
-            if (name in current_context()
-                    and name not in dependency_args
-                    and name not in positional_names):
+            if (name in current_context() and
+                    name not in dependency_args and
+                    name not in positional_names):
                 key = Key(
                     dependency_type=object,
                     name=name

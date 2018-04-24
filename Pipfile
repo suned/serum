@@ -4,6 +4,7 @@
 "setup-sdist" = "python ./setup.py sdist"
 "setup-wheel" = "python ./setup.py bdist_wheel"
 "release" = "twine upload -u dist/*"
+"lint" = "flake8 serum test"
 
 [packages]
 # There is no dependencies ;)
@@ -13,7 +14,6 @@ pytest-cov = "*"
 parameterized = "*"
 semver = "*"
 pytest = "*"
-"pytest-flake8" = "*"
 "flake8" = "*"
 coverage = "*"
 twine = "*"

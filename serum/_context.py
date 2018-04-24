@@ -222,7 +222,7 @@ class Context:
                     f'Circular dependency encountered while injecting '
                     f'{dependency_type} as "{configuration.name}" in '
                     f'{configuration.owner}'
-                    )
+                )
             context.pending.add(dependency_type)
             try:
                 if is_singleton(dependency_type):
