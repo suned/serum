@@ -22,7 +22,7 @@ jobs:
           command: |
             ./cc-test-reporter before-build
             pipenv run test
-            ./cc-test-reporter after-build --exit-code $?
+            ./cc-test-reporter after-build --coverage-input-type coverage.py --exit-code $?
       - store_artifacts:
           path: htmlcov
           destination: htmlcov
