@@ -1,10 +1,10 @@
 [scripts]
-"test" = "pytest"
+"test" = "python -m pytest"
 "test-clear" = "rm -rf .coverage coverage.xml test-results"
 "setup-sdist" = "python ./setup.py sdist"
 "setup-wheel" = "python ./setup.py bdist_wheel"
 "release" = "twine upload -u dist/*"
-"lint" = "flake8 serum test"
+"lint" = "flake8"
 
 [packages]
 # There are no dependencies ;)
