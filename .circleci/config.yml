@@ -24,8 +24,8 @@ jobs:
             pipenv run test
             ./cc-test-reporter after-build --exit-code $?
       - store_artifacts:
-          path: test-results
-          destination: test-results
+          path: htmlcov
+          destination: htmlcov
   deploy:
     docker:
       - image: python:3.6
