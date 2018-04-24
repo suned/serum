@@ -7,7 +7,7 @@
 "lint" = "flake8 serum test"
 
 [packages]
-# There is no dependencies ;)
+# There are no dependencies ;)
 
 [dev-packages]
 pytest-cov = "*"
