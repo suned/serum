@@ -1,52 +1,52 @@
-# Python CircleCI 2.0 configuration file
-#
-# Check https://circleci.com/docs/2.0/language-python/ for more details
-#
 version: 2
+general:
+  branches:
+    ignore:
+      - gh-pages
 jobs:
   test:
     docker:
-      - image: circleci/python:3.6.1
+      - image: python:3.6-alpine
     working_directory: ~/serum
     steps:
       - checkout
       - run:
-          name: install dependencies
+          name: Prepare
           command: |
-            python3 -m venv venv
-            . venv/bin/activate
-            pip install codecov
+            pip install pipenv
+            pipenv sync -d
       - run:
-          name: run tests and report metrics
+          name: Test
           command: |
-            . venv/bin/activate
-            coverage run --source serum --branch  -m unittest
-            coverage report --fail-under 100
-            codecov
-
-
+            pipenv run test
+            coverage
+      - store_artifacts:
+          path: test-results
+          destination: test-results
   deploy:
     docker:
-      - image: circleci/python:3.6.1
+      - image: python:3.6-alpine
     working_directory: ~/serum
     steps:
       - checkout
       - run:
-          name: install dependencies
+          name: Prepare
           command: |
-            python3 -m venv venv
-            . venv/bin/activate
-            pip install --upgrade setuptools
-            pip install twine semver wheel
+            pip install pipenv
+            pipenv sync -d
       - run:
-          name: release to pypi
+          name: Build
           command: |
-            . venv/bin/activate
-            bash scripts/deploy.sh
+            pipenv run setup-sdist
+            pipenv run setup-wheel
+      - run:
+          name: Deploy
+          command: |
+            pipenv run release
 
 workflows:
   version: 2
-  test_and_deploy:
+  test:
     jobs:
       - test:
           filters:
@@ -60,4 +60,5 @@ workflows:
               only: /^v.*/
             branches:
               ignore: /.*/
+
 

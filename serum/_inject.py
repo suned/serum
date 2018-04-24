@@ -105,7 +105,7 @@ def _decorate_function(f):
         positional_names = {name for name, arg in zip(names, args)}
         dependency_args = kwargs
         annotations = f.__annotations__
-        return_type = annotations.pop('return', None)
+        annotations.pop('return', None)
         for name, dependency in annotations.items():
             if name in dependency_args or name in positional_names:
                 continue

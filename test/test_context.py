@@ -127,9 +127,8 @@ class ContextTests(unittest.TestCase):
         self.assertIsNot(Context.current_context(), e)
 
     def test_missing_named_dependency(self):
-        e = Context()
-        with self.assertRaises(NoNamedDependency):
-            _ = e['key']
+        c = Context()
+        self.assertRaises(NoNamedDependency, lambda: c['key'])
 
     def test_getitem(self):
         e = Context(key='value')
@@ -182,8 +181,7 @@ class ContextTests(unittest.TestCase):
             a: AbstractA
 
         with Context(A, B):
-            with self.assertRaises(CircularDependency):
-                _ = Dependent().a
+            self.assertRaises(CircularDependency, lambda: Dependent().a)
 
     def test_subtype_is_singleton(self):
         @singleton

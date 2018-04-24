@@ -8,15 +8,6 @@ from ._context import Context
 T = TypeVar('T')
 
 
-def immutable(value: T) -> T:
-    """
-    Add a static constant to a class.
-    :param value: The value to add
-    :return: property that returns value
-    """
-    return cast(T, property(fget=lambda _: value))
-
-
 def mock(dependency: Union[str, Type[T]]) -> MagicMock:
     """
     Mock a dependency in the current environment
@@ -53,4 +44,4 @@ def match(environment_variable: str,
         raise UnknownEnvironment(environment)
 
 
-__all__ = ['immutable', 'mock', 'match']
+__all__ = ['mock', 'match']
