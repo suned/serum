@@ -1,7 +1,7 @@
 from copy import copy, deepcopy
 from unittest.mock import create_autospec, MagicMock
 from functools import wraps
-from typing import Type, Set, Union, Dict, TypeVar
+from typing import Type, Set, Union, Dict, TypeVar  # noqa
 
 from ._dependency_configuration import DependencyConfiguration
 from ._key import Key
@@ -19,13 +19,13 @@ T = TypeVar('T')
 
 class _LocalStorage(threading.local):
     def __init__(self):
-        self.current_env: Context = None
+        self.current_env = None  # type: Context
 
 
 class _ContextState(threading.local):
     def __init__(self):
-        self.pending: Set[Type[object]] = set()
-        self.old_current: Context = None
+        self.pending = set()  # type: Set[Type[object]]
+        self.old_current = None  # type: Context
         self.mocks: Dict[Union[str, Type[object]], MagicMock] = dict()
         self.singletons: Dict[Type[T], T] = dict()
 
@@ -80,8 +80,8 @@ class Context:
         :param args: Dependency decorated types to provide in this context
         :param kwargs: Named dependencies to provide in this context
         """
-        self.__registry: Set[Type[object]] = set()
-        self.__state: _ContextState = _ContextState()
+        self.__registry = set()  # type: Set[Type[object]]
+        self.__state = _ContextState()  # type: _ContextState
         self.__named_dependencies = kwargs
         self.__old_current = None
         for c in args:
@@ -239,7 +239,7 @@ class Context:
                 ) from e
             finally:
                 context.pending.remove(dependency_type)
-        dependency: Type[T] = configuration.dependency
+        dependency = configuration.dependency  # type: Type[T]
         if context.is_mocked(dependency):
             return context.get_mock(dependency)
         subtype = Context.find_subtype(dependency)
