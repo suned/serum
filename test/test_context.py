@@ -44,8 +44,8 @@ class Key:
 
 @inject
 class Dependent:
-    some_singleton: SomeSingleton
-    some_component: SomeComponent
+    some_singleton = SomeSingleton
+    some_component = SomeComponent
 
 
 def configuration(d):
@@ -176,21 +176,21 @@ def test_circular_dependency():
 
     @inject
     class A(AbstractA):
-        b: AbstractB
+        b = AbstractB
 
         def __init__(self):
             self.b
 
     @inject
     class B(AbstractB):
-        a: AbstractA
+        a = AbstractA
 
         def __init__(self):
             self.a
 
     @inject
     class Dependent:
-        a: AbstractA
+        a = AbstractA
 
     with Context(A, B):
         pytest.raises(CircularDependency, lambda: Dependent().a)

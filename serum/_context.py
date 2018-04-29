@@ -14,6 +14,9 @@ import inspect
 from collections import Counter
 
 
+__all__ = ['Context']
+
+
 T = TypeVar('T')
 
 
@@ -24,10 +27,10 @@ class _LocalStorage(threading.local):
 
 class _ContextState(threading.local):
     def __init__(self):
-        self.pending = set()  # type: Set[Type[object]]
+        self.pending = set()  # type: Set[object]
         self.old_current = None  # type: Context
-        self.mocks: Dict[Union[str, Type[object]], MagicMock] = dict()
-        self.singletons: Dict[Type[T], T] = dict()
+        self.mocks = dict()  # type: Dict[Union[str, object], MagicMock]
+        self.singletons = dict()  # type: Dict[T, T]
 
     def __deepcopy__(self, memodict):
         new = _ContextState()
@@ -60,7 +63,7 @@ class Context:
         return env
 
     @staticmethod
-    def mock(dependency: Union[str, Type[object]]):
+    def mock(dependency: Union[str, object]):
         current_env = Context.current_context()
         if isinstance(dependency, str):
             value = current_env[dependency]
@@ -74,13 +77,13 @@ class Context:
     def _set_current_env(env: 'Context'):
         Context.__local_storage.current_env = env
 
-    def __init__(self, *args: Type[object], **kwargs: object) -> None:
+    def __init__(self, *args: object, **kwargs: object) -> None:
         """
         Construct a new context
         :param args: Dependency decorated types to provide in this context
         :param kwargs: Named dependencies to provide in this context
         """
-        self.__registry = set()  # type: Set[Type[object]]
+        self.__registry = set()  # type: Set[object]
         self.__state = _ContextState()  # type: _ContextState
         self.__named_dependencies = kwargs
         self.__old_current = None
@@ -99,24 +102,24 @@ class Context:
             return self.__named_dependencies[item]
         except KeyError:
             raise NoNamedDependency(
-                f'Named dependency "{item}" not found in: {repr(self)}'
+                'Named dependency "{item}" not found!}'.format(item=item)
             )
 
     @property
-    def pending(self) -> Set[Type[object]]:
+    def pending(self) -> Set[object]:
         return self.__state.pending
 
-    def get_mock(self, component: Type[object]) -> MagicMock:
+    def get_mock(self, component: object) -> MagicMock:
         return self.__state.mocks[component]
 
-    def is_mocked(self, component: Union[str, Type[object]]) -> bool:
+    def is_mocked(self, component: Union[str, object]) -> bool:
         return component in self.__state.mocks
 
-    def __use(self, component: Type[object]) -> 'Context':
+    def __use(self, component: object) -> 'Context':
         self.__registry.add(component)
         return self
 
-    def __contains__(self, component: Type[object]) -> bool:
+    def __contains__(self, component: object) -> bool:
         """
         Test if a Dependency is registered in this context
         :param component: Dependency to test
@@ -198,7 +201,7 @@ class Context:
         """
         context = Context.current_context()
 
-        def singleton(singleton_type: Type[T]) -> T:
+        def singleton(singleton_type: T) -> T:
             if context.has_singleton_instance(singleton_type):
                 return context.get_singleton(singleton_type)
             else:
@@ -209,19 +212,18 @@ class Context:
                 )
                 return singleton_instance
 
-        def instance(component_type: Type[T]) -> T:
+        def instance(component_type: T) -> T:
             component_instance = component_type()
             return component_instance
 
         def is_singleton(st):
             return hasattr(st, '__singleton__')
 
-        def instantiate(dependency_type: Type[T]) -> T:
+        def instantiate(dependency_type: T) -> T:
             if dependency_type in context.pending:
                 raise CircularDependency(
-                    f'Circular dependency encountered while injecting '
-                    f'{dependency_type} as "{configuration.name}" in '
-                    f'{configuration.owner}'
+                    'Circular dependency encountered while injecting {type} as "{name}" in {owner}'
+                    .format(type=dependency_type, name=configuration.name, owner=configuration.owner)
                 )
             context.pending.add(dependency_type)
             try:
@@ -234,12 +236,12 @@ class Context:
                 raise
             except Exception as e:
                 raise InjectionError(
-                    f'Could not instantiate {dependency_type} when injecting '
-                    f'"{configuration.name}" in {configuration.owner}.'
+                    'Could not instantiate {type} when injecting "{name}" in {owner}'
+                    .format(type=dependency_type, name=configuration.name, owner=configuration.owner)
                 ) from e
             finally:
                 context.pending.remove(dependency_type)
-        dependency = configuration.dependency  # type: Type[T]
+        dependency = configuration.dependency  # type: T
         if context.is_mocked(dependency):
             return context.get_mock(dependency)
         subtype = Context.find_subtype(dependency)
@@ -248,8 +250,8 @@ class Context:
         return instantiate(subtype)
 
     @staticmethod
-    def find_subtype(component: Type[T]) -> Union[Type[T], None]:
-        def mro_distance(subtype: Type[T]) -> int:
+    def find_subtype(component: T) -> Union[T, None]:
+        def mro_distance(subtype: T) -> int:
             mro = inspect.getmro(subtype)
             return mro.index(component)
 
@@ -279,13 +281,10 @@ class Context:
 
     def __repr__(self):
         dependencies = [repr(dependency) for dependency in self.__registry]
-        named_dependencies = [f'{key}={repr(value)}' for key, value
+        named_dependencies = ['{key}={value}'.format(key=key, value=repr(value)) for key, value
                               in self.__named_dependencies.items()]
         args = ', '.join(dependencies + named_dependencies)
-        return f'Context({args})'
-
-
-__all__ = ['Context']
+        return 'Context({args})'.format(args=args)
 
 
 def provide(configuration: DependencyConfiguration):
