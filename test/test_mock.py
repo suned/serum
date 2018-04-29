@@ -17,13 +17,13 @@ class SomeCallableComponent:
 
 @inject
 class Dependent:
-    some_component: SomeComponent
-    some_callable_component: SomeCallableComponent
+    some_component = None  # type: SomeComponent
+    some_callable_component = None  # type: SomeCallableComponent
 
 
 @inject
 class NamedDependent:
-    key: str
+    key = ''  # type: str
 
 
 def test_mock_always_replaces_component():

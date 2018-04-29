@@ -1,4 +1,4 @@
-from typing import TypeVar, Type, Union
+from typing import TypeVar, Type, Union  # noqa
 from unittest.mock import MagicMock
 
 import os
@@ -8,7 +8,7 @@ from ._context import Context
 T = TypeVar('T')
 
 
-def mock(dependency: Union[str, Type[T]]) -> MagicMock:
+def mock(dependency: Union[str, T]) -> MagicMock:
     """
     Mock a dependency in the current environment
     :param dependency: The type to mock
@@ -19,7 +19,7 @@ def mock(dependency: Union[str, Type[T]]) -> MagicMock:
 
 
 def match(environment_variable: str,
-          default: Context = None,
+          default=None,  # type: Context
           **environments) -> Context:
     """
     Match environment variable with Environment

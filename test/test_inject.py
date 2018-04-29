@@ -35,18 +35,18 @@ class AlternativeDependency(AbstractDependency):
 @dependency
 @inject
 class Chain:
-    some_component: SomeDependency
+    some_component = None  # type: SomeDependency
 
 
 @inject
 class Dependent:
-    some_dependency: SomeDependency
-    chain: Chain
+    some_dependency = None  # type: SomeDependency
+    chain = None  # type: Chain
 
 
 @inject
 class AbstractDependent:
-    abstract_dependency: AbstractDependency
+    abstract_dependency = None  # type: AbstractDependency
 
 
 class SubDependent(AbstractDependent):
@@ -59,12 +59,12 @@ class SubSubDependent(SubDependent):
 
 @inject
 class OverwriteDependent(AbstractDependent):
-    abstract_dependency: AlternativeDependency
+    abstract_dependency = None   # type: AlternativeDependency
 
 
 @inject
 class NamedDependent:
-    key: str
+    key = ''   # type: str
 
 
 def test_inject_gets_concrete_component():
@@ -152,7 +152,7 @@ def test_decorate_class_with_no_annotations():
 
 def test_decorate_class_with_no_dependency_annotations():
     class NoDependencyAnnotations:
-        a: int
+        a = None  # type: int
 
     decorated = inject(NoDependencyAnnotations)
     assert decorated is NoDependencyAnnotations
@@ -211,7 +211,7 @@ def test_invalid_class_dependencies():
 
     @inject
     class D:
-        _: BadDependency
+        _ = None  # type: BadDependency
 
     pytest.raises(InjectionError, lambda: D()._)
 
@@ -227,7 +227,7 @@ def test_subtype_is_bad_dependency():
 
     @inject
     class C:
-        _: D
+        _ = None  # type: D
 
     with Context(BadDependency):
         pytest.raises(InjectionError, lambda: C()._)
@@ -241,7 +241,7 @@ def test_dependency_raises_type_error():
 
     @inject
     class C:
-        _: BadDependency
+        _ = None   # type: BadDependency
 
     pytest.raises(InjectionError, lambda: C()._)
 
@@ -249,7 +249,7 @@ def test_dependency_raises_type_error():
 def test_no_named_dependency():
     @inject
     class C:
-        name: str
+        name = None   # type: str
 
     pytest.raises(NoNamedDependency, lambda: C().name)
 
@@ -270,7 +270,7 @@ def test_missing_init_dependencies():
 
     @inject
     class C:
-        d: D
+        d = None   # type: D
 
     pytest.raises(NoNamedDependency, lambda: C().d)
 
@@ -282,7 +282,7 @@ def test_inject_with_set_attr_override():
 
     @inject
     class C:
-        d: D
+        d = None   # type: D
 
         def __setattr__(self, key, value):
             raise AttributeError()

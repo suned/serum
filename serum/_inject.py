@@ -13,7 +13,7 @@ T = TypeVar('T')
 
 
 def __format_name(cls, name):
-    return f'_{cls.__name__}__{name}'
+    return '_{class_name}__{name}'.format(class_name=cls.__name__, name=name)
 
 
 def __is_dependency_decorated(dependency):
@@ -34,8 +34,8 @@ def __set_dependency(configuration: DependencyConfiguration, kwargs, name):
             setattr(configuration.owner, name, instance)
         except Exception as e:
             raise InjectionError(
-                f'Could not set attribute {configuration.name} on '
-                f'{configuration.owner}'
+                'Could not set attribute {name} on {owner}'
+                .format(name=configuration.name, owner=configuration.owner)
             ) from e
 
 

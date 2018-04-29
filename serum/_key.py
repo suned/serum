@@ -1,6 +1,3 @@
-from typing import NamedTuple
+from collections import namedtuple
 
-
-class Key(NamedTuple):
-    dependency_type: type
-    name: str
+Key = namedtuple('Key', ['dependency_type', 'name'])
