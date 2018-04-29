@@ -13,7 +13,7 @@ def load_ipython_extension(_):
     try:
         from ipython_context import context  # type: ignore
         context.__enter__()
-    except ModuleNotFoundError:
+    except ImportError:
         pass
 
 
@@ -21,5 +21,5 @@ def unload_ipython_extension(_):
     try:
         from ipython_context import context  # type: ignore
         context.__exit__(None, None, None)
-    except ModuleNotFoundError:
+    except ImportError:
         pass
