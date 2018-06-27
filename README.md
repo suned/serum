@@ -295,7 +295,7 @@ with context:
     assert Database().connection_string == connection_string
 ```
 `Context`s are local to each thread. This means that when using multi-threading
-each thread must define its own environment.
+each thread must define its own context.
 ```python
 import threading
 
@@ -303,7 +303,7 @@ def worker_without_environment():
     NeedsSuper().instance  # raises NoEnvironment: Can't inject components outside an environment
 
 def worker_with_environment():
-    with Environment(Sub):
+    with Context(Sub):
         NeedsSuper().instance  # OK!
 
 with Context():
@@ -312,7 +312,7 @@ with Context():
 ```
 
 ## `singleton`
-To always inject the same instance of a dependency in the same `Context`, inherit from `Singleton`.
+To always inject the same instance of a dependency in the same `Context`, annotate your type with `singleton`.
 ```python
 from serum import singleton
 
