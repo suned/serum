@@ -358,9 +358,9 @@ def test_inject_with_return_annotation():
 
 def test_inject_singleton_without_context():
     Context._set_current_env(None)
+
     @inject
     class C:
         instance: SomeSingleton
 
     assert C().instance is C().instance
-
