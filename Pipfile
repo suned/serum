@@ -3,7 +3,7 @@
 "test-clear" = "rm -rf .coverage coverage.xml test-results"
 "setup-sdist" = "python ./setup.py sdist"
 "setup-wheel" = "python ./setup.py bdist_wheel"
-"release" = "twine upload -u dist/*"
+"release" = "twine upload dist/*"
 "lint" = "flake8"
 
 [packages]
