@@ -304,8 +304,6 @@ import threading
 class SomeSingleton:
     pass
 
-def worker_without_environment():
-    NeedsSuper().instance
 
 @inject
 def worker(instance: SomeSingleton):
