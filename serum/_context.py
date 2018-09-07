@@ -56,7 +56,8 @@ class Context:
     def current_context() -> 'Context':
         env = Context.__local_storage.current_env
         if env is None:
-            return Context()
+            env = Context()
+            Context._set_current_env(env)
         return env
 
     @staticmethod

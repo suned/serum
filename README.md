@@ -119,7 +119,7 @@ injected using keyword arguments to [`Context`](#context).
 def f(dependency: str):
     assert dependency == 'a named dependency'
 
-with Environment(dependency='a named dependency'):
+with Context(dependency='a named dependency'):
     f()
 ```
 `inject` can also be used to decorate classes. 
@@ -295,20 +295,25 @@ with context:
     assert Database().connection_string == connection_string
 ```
 `Context`s are local to each thread. This means that when using multi-threading
-each thread must define its own context.
+each thread runs in its own context
 ```python
 import threading
 
-def worker_without_environment():
-    NeedsSuper().instance  # raises NoEnvironment: Can't inject components outside an environment
 
-def worker_with_environment():
-    with Context(Sub):
-        NeedsSuper().instance  # OK!
+@singleton
+class SomeSingleton:
+    pass
+
+def worker_without_environment():
+    NeedsSuper().instance
+
+@inject
+def worker(instance: SomeSingleton):
+    print(instance)
 
 with Context():
-    threading.Thread(target=worker_without_environment()).start()
-    threading.Thread(target=worker_with_environment()).start()
+    worker() # outputs: <SomeSingleton object at 0x101f75470>
+    threading.Thread(target=worker).start() # outputs: <SomeSingleton object at 0x1035fb320>
 ```
 
 ## `singleton`
@@ -428,7 +433,7 @@ with Context():
 with values of an environment variable.
 ```python
 # my_script.py
-from serum import match, dependency, Environment, inject
+from serum import match, dependency, Context, inject
 
 @dependency
 class BaseDependency:

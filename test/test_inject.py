@@ -3,8 +3,8 @@ from abc import abstractmethod, ABC
 from serum import (
     inject,
     dependency,
-    Context
-)
+    Context,
+    singleton)
 from serum._injected_dependency import Dependency as InjectedDependency
 from serum.exceptions import NoNamedDependency, InjectionError
 import pytest
@@ -30,6 +30,11 @@ class ConcreteDependency(AbstractDependency):
 class AlternativeDependency(AbstractDependency):
     def abstract(self):
         pass
+
+
+@singleton
+class SomeSingleton:
+    pass
 
 
 @dependency
@@ -349,3 +354,13 @@ def test_inject_with_return_annotation():
 
     with Context(a=1):
         assert f() == 1
+
+
+def test_inject_singleton_without_context():
+    Context._set_current_env(None)
+    @inject
+    class C:
+        instance: SomeSingleton
+
+    assert C().instance is C().instance
+
